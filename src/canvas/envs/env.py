@@ -1,13 +1,23 @@
 import os
 import numpy as np
-
+from ..datasets import load_dataset
 
 class Environment:
-    def __init__(self, filepath, dt, init_robot_pose, n_pedestrians=4, t_begin=40, t_end=160):
-
+    def __init__(self, filepath, dt, init_robot_pose, t_begin=40, t_end=160,history_len=8,prediction_len=12):
+        """
+        A simple environment for simulating a differential drive robot
+        moving in a crowd of pedestrians.
+        :param filepath: path to the dataset file (can be passed in short code form like 'ETH', 'ZARA1', etc.)
+        :param dt: timestep for the robot simulation   
+        :param init_robot_pose: initial pose of the robot [x(m),y(m),theta(rad)]
+        :param t_begin: first timestep to use from the dataset (default: 40)
+        :param t_end: last timestep to use from the dataset (default: 160)
+        :param history_len: number of observed steps provided to the model.
+        :param prediction_len: number of future steps to predict.
+        """
         self._dt = dt
 
-        self._data = np.load(filepath)
+        self._data = load_dataset(filepath)
         #assert self._data.shape == (201, n_pedestrians, 2)
         self._track_id = list(range(self._data.shape[1]))
 
@@ -20,16 +30,24 @@ class Environment:
         self._step = None
         self._first_step = t_begin
         self._final_step = t_end - 1
+        self._history_len=history_len
+        self._prediction_len=prediction_len
 #utilize valid pedestrians to get data out of here
     def _get_obs(self):
-        return {i: self._data[self._step-7:self._step+1, i, :] for i in self._track_id }
+        """Get the history length amount of observed trajectories of all pedestrians up to the current step."""
+        return {i: self._data[self._step-self._history_len-1:self._step+1, i, :] for i in self._track_id }
     def _get_obs_future(self):
-        return {i: self._data[self._step+1:self._step+13, i, :] for i in self._track_id }
+        """Get the prediction length amount of future trajectories of all pedestrians after the current step."""
+        return {i: self._data[self._step+1:self._step+self._prediction_len+1, i, :] for i in self._track_id }
     def reset(self):
+        """
+        Reset the environment to the initial state."""
         self._step = self._first_step
         self._robot_pose = np.copy(self._init_pose)
         return np.copy(self._robot_pose)
     def get_velocity(self):
+        """
+        Get the current velocity of the robot"""
         return self.robot_velocity
     def step(self, velocity):
         """

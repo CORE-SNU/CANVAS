@@ -1,18 +1,31 @@
 import os
 import numpy as np
-from prediction.linear_predictor import LinearPredictor
+from .linear_predictor import LinearPredictor
 from trajectron_predictor import TrajectronPredictor
-from prediction.eigen.eigen_predictor_class import EigenTrajectoryPredictor
+from .eigen.eigen_predictor_class import EigenTrajectoryPredictor
+import torch
 
 
 class Predictors:
     def __init__(self, chosen_predictor='linear',
                  prediction_len=12,history_len=8,
                  dt=0.1,smoothing_factor=0.75,
-                 model_dir='/prediction/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3',
+                 model_dir='src\canvas\predictors\trajectron\models_11_Feb_2025_10_01_22eth_vel_ar3',
                  device='cpu',
-                 cfg='/prediction/eigen/eigentrajectory-stgcnn-lobby_data.json'):
+                 cfg='src\canvas\predictors\eigen\eigentrajectory-stgcnn-lobby_data.json'):
+        """Predictor wrapper for different predictors.
 
+        Args:
+            chosen_predictor: One of {"linear","lin","trajectron","traj","tpp",
+                "eigen","eigentrajectory","eigen_traj","pytorch","torch"}.
+            prediction_len: Number of future steps to predict.
+            history_len: Number of observed steps provided to the model.
+            dt: Timestep used by some predictors.
+            smoothing_factor: Smoothing factor for the Linear predictor.
+            model_dir: For Trajectron++ (dir), Eigen (model_path), or PyTorch (full model file).
+            device: Torch device string, e.g. "cpu", "cuda:0".
+            cfg: JSON config path (For Eigen only in the current setup).
+        """
         self._dt = dt
         name = str(chosen_predictor).strip().lower()
 
@@ -40,13 +53,39 @@ class Predictors:
                 history_len=history_len,
                 model_path=model_dir,
                 cfg=cfg,)
-
+        elif name in ("pytorch", "torch"):
+            self.PredictorModel=torch.load(model_dir,map_location=device)
+            self.PredictorModel.eval()
         else:
             raise ValueError(
                 f"Unknown predictor '{chosen_predictor}'. "
                 "Expected one of: Linear, Trajectron, Eigen."
             )
-    def __call__(self,dyanmic_obs):
+    def __call__(self,dynamic_obs):
+        """Run the selected predictor.
+
+        Args:
+            dynamic_obs: Observation/input structure required by the underlying
+                predictor (often a tensor or dict-like). This wrapper forwards
+                the input unchanged.
+
+        Returns:
+            Whatever the underlying predictor returns (commonly a dict of shape
+            ``{B:[prediction_len, D]}``).
+
+        Example:
+            >>> preds = Predictors("linear", prediction_len=12, dt=0.1)
+            >>> y = preds(dynamic_obs)  # forwards to LinearPredictor(dynamic_obs)
+        """
         return self.PredictorModel(dynamic_obs)
     def predictor(self):
+        """Return the underlying predictor instance.
+
+        Use this when you need direct access (e.g., to call ``to(device)``,
+        set modes, or inspect parameters).
+
+        Example:
+            >>> p = Predictors("eigen").predictor()
+            >>> p.eval()  # switch to eval mode
+        """
         return self.PredictorModel
