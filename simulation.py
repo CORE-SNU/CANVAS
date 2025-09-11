@@ -12,20 +12,11 @@ import pickle
 import csv
 
 import sys
-sys.path.append('/home/snowhan1021/tools_paper/CANavi')
-from competency_index import CompetencyIndex
-from env import Environment
-from detection.detection_utils import Box
-from control.grid_solver import GridMPC
-# from control.sampling_based_mpc import SamplingBasedMPC
-from conformal_prediction.adaptive_cp import AdaptiveConformalPredictionModule
+_DATA_DIR = os.path.dirname(__file__)
 
-# For predictors
-from prediction.linear_predictor import LinearPredictor
-from trajectron_predictor import TrajectronPredictor
-from koopman.koopy_predictor_justmul import KoopmanPredictor
-# from koopman.koopman_predictor_clu_geo import KoopmanPredictor
-# from prediction.eigen.eigen_predictor import eigen_predictor
+sys.path.append(_DATA_DIR)
+from src.canvas import Environment, Box, GridMPC, AdaptiveConformalPredictionModule, Predictors, CompetencyIndex
+
 
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
@@ -199,6 +190,7 @@ def main(goal_x, goal_y, num_iter, r_star):
 
     # Predictor horizon
     prediction_len = 12
+    history_len = 8
 
     # Unified R* (kept for future score/CI; not used in controller)
     rstar = r_star
@@ -264,9 +256,7 @@ def main(goal_x, goal_y, num_iter, r_star):
 
         # ---- Choose predictor ----
         data_dir = "/home/snowhan1021/tools_paper/CANavi/prediction/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
-        # obj_predictor = LinearPredictor(prediction_len=prediction_len, history_len=8, smoothing_factor=0.75, dt=dt)
-        # obj_predictor = KoopmanPredictor(prediction_len=prediction_len, data_dir=data_dir, min_samples=100, dt=dt, pattern=r'^.*\d{2}\.npy$')
-        obj_predictor = TrajectronPredictor(prediction_len=prediction_len, model_dir=data_dir, device='cpu')  # Trajectron++ predictor
+        obj_predictor = Predictors(chosen_predictor='Linear',prediction_len=prediction_len,history_len=history_len, device='cpu')                                    # Trajectron++ predictor
 
         controller = GridMPC(n_steps=prediction_len, dt=dt)
 
@@ -295,7 +285,6 @@ def main(goal_x, goal_y, num_iter, r_star):
             filepath=os.path.join('0.npy'),
             dt=dt,
             init_robot_pose=init_robot_pose,
-            n_pedestrians=0,  # NOT USED
             t_begin=t_begin,
             t_end=t_end
         )
