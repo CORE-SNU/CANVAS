@@ -33,9 +33,6 @@ Simulation pipeline (per frame):
 - CP (adaptive conformal) is updated ONCE per frame using current observations & predictions
 """
 
-matplotlib.use('Agg')
-os.environ['QT_QPA_PLATFORM'] = 'offscreen'
-
 # -----------------------------
 # Static map geometry → boxes
 # -----------------------------
