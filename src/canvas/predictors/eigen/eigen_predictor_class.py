@@ -2,9 +2,12 @@ import os
 from types import SimpleNamespace
 import numpy as np
 import torch
+import sys
+_DATA_DIR = os.path.dirname(__file__)
 
-# Assumes these resolve in your project
-import baseline
+sys.path.append(_DATA_DIR)
+import importlib
+baseline = importlib.import_module("baseline")
 from EigenTrajectory import EigenTrajectory
 from utils.utils import get_exp_config, DotDict
 from utils import trainer as trainer_mod
@@ -55,7 +58,6 @@ class EigenTrajectoryPredictor:
 
     @staticmethod
     def interpolate_trajectory(traj: np.ndarray, target_length: int) -> np.ndarray:
-        # Same logic as your helper (np.interp per coordinate)
         L = traj.shape[0]
         if L == target_length:
             return traj
@@ -67,7 +69,6 @@ class EigenTrajectoryPredictor:
         return new_traj
 
     def __call__(self, dynamic_obs):
-        # == eigen_predictor() logic, kept near-identical ==
         data = dynamic_obs
         eligible_tensors = []
         eligible_keys = []  # 추적 가능한 객체의 key 목록

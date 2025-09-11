@@ -1,5 +1,5 @@
 import numpy as np
-from trajectron_lobby_data_live import predict
+from .trajectron_lobby_data_live import predict
 from .trajectron.environment.node import Node
 from .trajectron.environment.node_type import NodeType
 

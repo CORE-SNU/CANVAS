@@ -1,1 +1,1 @@
-from adaptive_cp import AdaptiveConformalPredictionModule
+from .adaptive_cp import AdaptiveConformalPredictionModule

@@ -1,1 +1,1 @@
-from predictor_CI import Predictor_CI
+from .predictor_CI import Predictor_CI

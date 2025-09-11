@@ -12,7 +12,9 @@ import random
 import pickle
 
 import sys
-sys.path.append('/home/snowhan1021/tools_paper/CANavi')
+_DATA_DIR = os.path.dirname(__file__)
+
+sys.path.append(_DATA_DIR)
 from src.canvas import Environment, Box, GridMPC, AdaptiveConformalPredictionModule, Predictors
 matplotlib.use('Agg')
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
@@ -200,6 +202,7 @@ def main(goal_x, goal_y, num_iter, r_star):
             # Keep only 8-step, all-finite (no NaN/Inf/None) trajectories with at least (x,y)
             valid_obs = {}
             valid_obs_future_true = {}
+            dynamic_obs={}
             for pid, traj in observation.items():
                 try:
                     arr = np.asarray(traj, dtype=np.float64)   # fails if there are None's
@@ -348,12 +351,11 @@ def main(goal_x, goal_y, num_iter, r_star):
         goal = np.array([goal_x, goal_y])
 
         prediction_len = 12
+        history_len=8
         data_dir = "/home/snowhan1021/tools_paper/CANavi"
         koopman_dir = "/home/snowhan1021/tools_paper/CANavi/koopman"
-        #obj_predictor = LinearPredictor(prediction_len=prediction_len, history_len=8, smoothing_factor=0.75, dt=dt)
-        #obj_predictor = KoopmanPredictor(prediction_len=prediction_len, data_dir=data_dir, min_samples=100, dt=dt, pattern=r'^.*\d{2}\.npy$')
-        obj_predictor = TrajectronPredictor(prediction_len=prediction_len, model_dir=data_dir, device='cpu')  # not used here
-        #obj_predictor = eigen_predictor
+        obj_predictor = Predictors(chosen_predictor='Linear',prediction_len=prediction_len,history_len=history_len, device='cpu')                                    # Trajectron++ predictor
+
         controller = GridMPC(n_steps=prediction_len, dt=dt)
 
         max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1)
@@ -381,7 +383,6 @@ def main(goal_x, goal_y, num_iter, r_star):
                 filepath=os.path.join('0.npy'),
                 dt=dt,
                 init_robot_pose=init_robot_pose,
-                n_pedestrians=0,#NOT USED
                 t_begin=t_begin,
                 t_end=t_end
             )

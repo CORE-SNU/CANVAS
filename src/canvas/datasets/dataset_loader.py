@@ -2,7 +2,7 @@ import os
 import numpy as np
 from typing import Union
 
-# Directory that contains the .npy files shown in your screenshot
+
 _DATA_DIR = os.path.dirname(__file__)
 
 def load_dataset(name_or_path: Union[str, os.PathLike]):

@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from .linear_predictor import LinearPredictor
-from trajectron_predictor import TrajectronPredictor
+from .trajectron_predictor import TrajectronPredictor
 from .eigen.eigen_predictor_class import EigenTrajectoryPredictor
 import torch
 

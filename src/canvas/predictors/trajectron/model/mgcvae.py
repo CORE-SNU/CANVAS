@@ -5,7 +5,7 @@ import torch.optim as optim
 from .components import *
 from .model_utils import *
 from . import dynamics as dynamic_module
-from prediction.trajectron.environment.scene_graph import DirectedEdge
+from ..environment.scene_graph import DirectedEdge
 
 
 class MultimodalGenerativeCVAE(object):
