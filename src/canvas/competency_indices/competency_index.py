@@ -1,5 +1,5 @@
 import numpy as np
-from score_function import ScoreFunction
+from .score_function import ScoreFunction
 
 class CompetencyIndex:
     """
