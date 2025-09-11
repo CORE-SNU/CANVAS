@@ -73,22 +73,25 @@ class AdaptiveConformalPredictionModule:
         observe x_t -> generate prediction(s) -> adaptive update of D^i_{cal, t} & alpha^i_t
                     -> build C_{alpha^i_t}(x_t|D^i_{cal,t})
         """
-        scores = self._compute_scores(obs) #중간변
-        self._update_calibration_sets(scores) #대각선으로 분배
-        intervals = self._compute_interval_lengths()
-        coverages = self._evaluate_coverage(scores)
-        effective_levels = self._update_miscoverage_levels(coverages)
+        if obs:
+            #avoid blank observations contaminating the adaptive cp.
+            scores = self._compute_scores(obs) #중간변
+            self._update_calibration_sets(scores) #대각선으로 분배
+            intervals = self._compute_interval_lengths()
+            coverages = self._evaluate_coverage(scores)
+            effective_levels = self._update_miscoverage_levels(coverages)
 
-        self._prediction_queue.append(pred)         # PREDICTION(t)
-        self._interval_queue.append(intervals)      # INTERVAL(t)
-        self._step += 1     # t -> t + 1
+            self._prediction_queue.append(pred)         # PREDICTION(t)
+            self._interval_queue.append(intervals)      # INTERVAL(t)
+            self._step += 1     # t -> t + 1
 
-        # store intermediate results for future evaluation
-        self._history['score'].append(scores)
-        self._history['interval'].append(intervals)
-        self._history['coverage'].append(coverages)
-        self._history['effective'].append(effective_levels)
-
+            # store intermediate results for future evaluation
+            self._history['score'].append(scores)
+            self._history['interval'].append(intervals)
+            self._history['coverage'].append(coverages)
+            self._history['effective'].append(effective_levels)
+        else:
+            intervals= np.array([np.nan]*self._n_scores)
         return intervals
 
     def _compute_scores(self, obs):
