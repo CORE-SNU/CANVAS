@@ -35,7 +35,7 @@ class Environment:
 #utilize valid pedestrians to get data out of here
     def _get_obs(self):
         """Get the history length amount of observed trajectories of all pedestrians up to the current step."""
-        return {i: self._data[self._step-self._history_len-1:self._step+1, i, :] for i in self._track_id }
+        return {i: self._data[self._step-self._history_len+1:self._step+1, i, :] for i in self._track_id }
     def _get_obs_future(self):
         """Get the prediction length amount of future trajectories of all pedestrians after the current step."""
         return {i: self._data[self._step+1:self._step+self._prediction_len+1, i, :] for i in self._track_id }
