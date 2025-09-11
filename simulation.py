@@ -15,7 +15,8 @@ import sys
 _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
-from src.canvas import Environment, Box, GridMPC, AdaptiveConformalPredictionModule, Predictors, CompetencyIndex
+from src.canvas import Environment, Box, GridMPC, \
+    AdaptiveConformalPredictionModule, Predictors, CompetencyIndex,Predictor_CI
 
 
 from matplotlib.patches import Circle, Polygon
@@ -269,6 +270,12 @@ def main(goal_x, goal_y, num_iter, r_star):
                                                       max_interval_lengths=max_interval_lengths,
                                                       sample_size=20,
                                                       offline_calibration_set=offline_calibration_set)
+        cp_module_gt = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
+                                                      step_size=0.05,
+                                                      n_scores=prediction_len,
+                                                      max_interval_lengths=max_interval_lengths,
+                                                      sample_size=20,
+                                                      offline_calibration_set=offline_calibration_set)
 
         begin = time.time()
         init_robot_pose = np.array([0, 0, np.pi / 2.])  # Initial robot position setting
@@ -344,6 +351,7 @@ def main(goal_x, goal_y, num_iter, r_star):
 
             # --------- CP update (once per frame) ---------
             confidence_intervals = cp_module.update(dynamic_obs, prediction_res if isinstance(prediction_res, dict) else {})
+            confidence_intervals_gt=cp_module_gt.update(dynamic_obs, valid_obs_future_true if isinstance(valid_obs_future_true, dict) else {})
 
             # --------- Controller (once per frame, with predictions) ---------
             velocity, info, minimum, intermediate, terminal, control, minimal = controller(
@@ -367,10 +375,11 @@ def main(goal_x, goal_y, num_iter, r_star):
                 angular_z=angular_z,
                 boxes=persistent_static_boxes,
                 predictions=valid_obs_future_true if isinstance(valid_obs_future_true, dict) else {},
-                confidence_intervals=confidence_intervals,
+                confidence_intervals=confidence_intervals_gt,
                 goal=goal
             )
-
+            prediction_competency=Predictor_CI()
+            prediction_comptency_score=prediction_competency.CI_default(confidence_intervals)
             # 1) traj CI (series)
             ci_traj_series = ci_traj(
                 prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
@@ -477,7 +486,7 @@ def main(goal_x, goal_y, num_iter, r_star):
                 print(f"[frame {frame}] CI_ctrl  (empty)")
 
             print(f"[frame {frame}] CI_obj={ci_obj_val:.3f}  CI_ctrl_cost={ci_ctrlcost_val:.3f}")
-
+            print(f"[frame {frame}] CI_Prediction  avg={prediction_comptency_score:.3f}")
             # --------- Accumulate costs ---------
             minimum_cost.append(minimal)
             buffer_intermediate.append(intermediate)
