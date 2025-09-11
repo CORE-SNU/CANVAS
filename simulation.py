@@ -17,7 +17,7 @@ _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
 from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex,Predictor_CI
-
+from save_ci import save_ci_iteration_csv, save_frame_png
 
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
@@ -69,117 +69,6 @@ for region in regions:
     persistent_static_boxes.append(box)
 
 # -----------------------------
-# Visualization helper (CI labels optional)
-# -----------------------------
-def save_frame_png(outdir,
-                   frame_idx,
-                   static_boxes,
-                   robot_xy,
-                   robot_traj_xy,
-                   goal_xy,
-                   valid_obs=None,
-                   valid_obs_future_true=None,
-                   prediction_res=None,
-                   r_star=None,
-                   steps_to_annotate=(2, 5, 10),
-                   annotate_ci=False,   # default off for unified pipeline
-                   ci_decimals=2,
-                   ci_fontsize=7,
-                   max_ci_annotations_per_step=None,
-                   xlim=(-2.5, 10.0),  #(-7.5, 13.5)
-                   ylim=(-10.0, 2.0)): #(-12.5, 5.5)
-    """Draw history / GT future / prediction with static boxes and robot.
-       CI circles/text are disabled by default (use annotate_ci=True to enable)."""
-    fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
-
-    # 1) Static boxes — gray
-    if static_boxes:
-        for b in static_boxes:
-            poly = Polygon(b.vertices, closed=True,
-                           facecolor='gray', edgecolor='gray',
-                           linewidth=1, zorder=0.1)
-            ax.add_patch(poly)
-
-    # 2) Robot trajectory / current / goal
-    px, py = robot_traj_xy
-    if len(px) and len(py):
-        ax.plot(px, py, linewidth=2)
-    ax.scatter([robot_xy[0]], [robot_xy[1]], marker='o', s=30)
-    if goal_xy is not None:
-        ax.scatter([goal_xy[0]], [goal_xy[1]], marker='*', s=80)
-
-    # 3) History(8)
-    if valid_obs:
-        for _, arr in valid_obs.items():
-            a = np.asarray(arr, dtype=np.float64)
-            if a.ndim == 2 and a.shape[1] >= 2:
-                a = a[:, :2]
-                ax.plot(a[:, 0], a[:, 1], color='navy', linewidth=1)
-
-    # 4) GT future(12)
-    if valid_obs_future_true:
-        for _, arr in valid_obs_future_true.items():
-            a = np.asarray(arr, dtype=np.float64)
-            if a.ndim == 2 and a.shape[1] >= 2:
-                a = a[:12, :2]
-                ax.plot(a[:, 0], a[:, 1], linestyle='--', color='black', linewidth=1)
-
-    # 5) Prediction(12)
-    if prediction_res:
-        for _, arr in prediction_res.items():
-            a = np.asarray(arr, dtype=np.float64)
-            if a.ndim == 2 and a.shape[1] >= 2:
-                a = a[:12, :2]
-                ax.plot(a[:, 0], a[:, 1], color='red', linewidth=1.5)
-
-    # 6) Optional CI annotations (off by default)
-    if annotate_ci and (r_star is not None) and (r_star > 0) and valid_obs_future_true and prediction_res:
-        common = set(prediction_res.keys()) & set(valid_obs_future_true.keys())
-        offsets = {2: (0.05, 0.05), 5: (-0.05, 0.05), 10: (0.05, -0.05)}
-        ann_counts = {s: 0 for s in steps_to_annotate}
-        for s in steps_to_annotate:
-            j = s - 1
-            for pid in common:
-                pred = np.asarray(prediction_res[pid], dtype=np.float64)
-                gt   = np.asarray(valid_obs_future_true[pid], dtype=np.float64)
-                if (pred.ndim == 2 and gt.ndim == 2 and pred.shape[1] >= 2 and gt.shape[1] >= 2
-                    and len(pred) > j and len(gt) > j):
-                    p = pred[j, :2]; g = gt[j, :2]
-                    if not (np.isfinite(p).all() and np.isfinite(g).all()):
-                        continue
-                    err = float(np.linalg.norm(p - g))
-                    ax.add_patch(Circle((p[0], p[1]), r_star,
-                                        fill=True, edgecolor='none', facecolor='lightgray', zorder=0.5))
-                    ax.add_patch(Circle((p[0], p[1]), err,
-                                        fill=True, edgecolor='black', facecolor='orange', linewidth=1, zorder=1.0))
-                    #ax.scatter([g[0]], [g[1]], marker='x', s=18, color='black', zorder=2.0)
-                    if (max_ci_annotations_per_step is None) or (ann_counts[s] < max_ci_annotations_per_step):
-                        ci = (r_star - err) / r_star
-                        if np.isfinite(ci):
-                            dx, dy = offsets.get(s, (0.04, 0.04))
-                            ax.text(p[0] + dx, p[1] + dy,
-                                    f"CI@t+{s}={ci:.{ci_decimals}f}",
-                                    fontsize=ci_fontsize, zorder=3.0)
-                            ann_counts[s] += 1
-
-    legend_elements = [
-        Line2D([0], [0], color='navy',  lw=1,   linestyle='-',  label='History (8)'),
-        Line2D([0], [0], color='black', lw=1,   linestyle='--', label='GT future (12)'),
-        Line2D([0], [0], color='red',   lw=1.5, linestyle='-',  label='Prediction (12)'),
-    ]
-    ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
-
-    ax.set_aspect('equal', adjustable='box')
-    ax.set_xlim(*xlim); ax.set_ylim(*ylim)
-    ax.grid(True, alpha=0.2)
-    fig.tight_layout()
-
-    outdir = pathlib.Path(outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
-    fig.savefig(outdir / f"frame_{frame_idx:05d}.png")
-    plt.close(fig)
-
-# -----------------------------
 # Main
 # -----------------------------
 def main(goal_x, goal_y, num_iter, r_star):
@@ -193,10 +82,6 @@ def main(goal_x, goal_y, num_iter, r_star):
     # Unified R* (kept for future score/CI; not used in controller)
     rstar = r_star
     #steps_to_eval = (2, 5, 10)
-
-    # Output dirs (kept for compatibility)
-    #results_dir = pathlib.Path("results")
-    #results_dir.mkdir(parents=True, exist_ok=True)
 
     # -----------------------------
     # GLOBAL BUFFERS (logging)
@@ -377,6 +262,7 @@ def main(goal_x, goal_y, num_iter, r_star):
             )
             prediction_competency=Predictor_CI()
             prediction_comptency_score=prediction_competency.CI_default(confidence_intervals)
+            
             # 1) traj CI (series)
             ci_traj_series = ci_traj(
                 prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
@@ -406,7 +292,6 @@ def main(goal_x, goal_y, num_iter, r_star):
             buffer_ci_ctrl_cost.append(ci_ctrlcost_val)
             it_ci_ctrl_cost.append(ci_ctrlcost_val)
 
-            '''
             # --------- Visualization (CI labels disabled by default) ---------
             try:
                 save_frame_png(
@@ -420,12 +305,11 @@ def main(goal_x, goal_y, num_iter, r_star):
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    steps_to_annotate=steps_to_eval,
                     annotate_ci=True  # keep False here; enable later if needed
                 )
             except Exception as e:
                 print(f"[WARN] viz save failed at frame {frame}: {e}")
-            '''
+
             # --------- Feasibility handling ---------
             buffer_infeasibility.append(info.get('feasible', True))
             if not info.get('feasible', True):
@@ -471,6 +355,7 @@ def main(goal_x, goal_y, num_iter, r_star):
             position_x, position_y, orientation_z = robot_pose
             print(frame, position_x, position_y, orientation_z, cmd_linear_x, cmd_angular_z, time.time() - detect_time)
 
+            '''
             # --- Per-frame CI printout ---
             if ci_traj_series.size:
                 print(f"[frame {frame}] CI_traj  avg={np.nanmean(ci_traj_series):.3f}  final={ci_traj_series[-1]:.3f}")
@@ -484,6 +369,7 @@ def main(goal_x, goal_y, num_iter, r_star):
 
             print(f"[frame {frame}] CI_obj={ci_obj_val:.3f}  CI_ctrl_cost={ci_ctrlcost_val:.3f}")
             print(f"[frame {frame}] CI_Prediction  avg={prediction_comptency_score:.3f}")
+            '''
             # --------- Accumulate costs ---------
             minimum_cost.append(minimal)
             buffer_intermediate.append(intermediate)
@@ -493,6 +379,17 @@ def main(goal_x, goal_y, num_iter, r_star):
             frame += 1
             buffer_vel = velocity
 
+        # ===== Write per-iteration CI CSV =====
+        ci_csv_path = save_ci_iteration_csv(
+            iter_out_dir=iter_out_dir,
+            iteration_index=times + 1,
+            it_ci_traj_series=it_ci_traj_series,
+            it_ci_ctrl_series=it_ci_ctrl_series,
+            it_ci_obj=it_ci_obj,
+            it_ci_ctrl_cost=it_ci_ctrl_cost,
+            prediction_len=prediction_len
+        )
+        print(f"[iter {times+1}] CI CSV saved to: {ci_csv_path}")
 
         # ---- Iteration-level rates and summaries ----
         buffer_collision_rate.append(collision_count / max(1, frame))
