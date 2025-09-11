@@ -13,17 +13,7 @@ import pickle
 
 import sys
 sys.path.append('/home/snowhan1021/tools_paper/CANavi')
-from env import Environment
-from detection.detection_utils import Box
-from control.grid_solver import GridMPC
-# from control.sampling_based_mpc import SamplingBasedMPC
-from conformal_prediction.adaptive_cp import AdaptiveConformalPredictionModule
-from prediction.linear_predictor import LinearPredictor
-from trajectron_predictor import TrajectronPredictor
-from koopman.koopy_predictor_justmul import KoopmanPredictor
-#from koopman.koopman_predictor_clu_geo import KoopmanPredictor
-#from prediction.eigen.eigen_predictor import eigen_predictor
-
+from src.canvas import Environment, Box, GridMPC, AdaptiveConformalPredictionModule, Predictors
 matplotlib.use('Agg')
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 
@@ -157,13 +147,11 @@ def main(goal_x, goal_y, num_iter, r_star):
         goal = np.array([goal_x, goal_y])
 
         prediction_len = 12
+        history_len=8
         R_star_vec = np.full(prediction_len, r_star, dtype=np.float64)
         data_dir = "/home/snowhan1021/tools_paper/CANavi"
         koopman_dir = "/home/snowhan1021/tools_paper/CANavi/koopman"
-        #obj_predictor = LinearPredictor(prediction_len=prediction_len, history_len=8, smoothing_factor=0.75, dt=dt)                            # Linear predictor
-        #obj_predictor = KoopmanPredictor(prediction_len=prediction_len, data_dir=data_dir, min_samples=100, dt=dt, pattern=r'^.*\d{2}\.npy$')  # Koopman predictor
-        obj_predictor = TrajectronPredictor(prediction_len=prediction_len, model_dir=data_dir, device='cpu')                                    # Trajectron++ predictor
-        #obj_predictor = eigen_predictor                                                                                                        # EigenTrajectory predictor
+        obj_predictor = Predictors(chosen_predictor='Linear',prediction_len=prediction_len,history_len=history_len, device='cpu')                                    # Trajectron++ predictor
         controller = GridMPC(n_steps=prediction_len, dt=dt)
 
         max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1)
@@ -188,10 +176,11 @@ def main(goal_x, goal_y, num_iter, r_star):
         buffer_vel = []
         done = False
         environment = Environment(
-                filepath=os.path.join('0.npy'),
+                filepath='eth',
                 dt=dt,
                 init_robot_pose=init_robot_pose,
-                n_pedestrians=0,#NOT USED
+                history_len=history_len,
+                prediction_len=prediction_len,
                 t_begin=t_begin,
                 t_end=t_end
             )
