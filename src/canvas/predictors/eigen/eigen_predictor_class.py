@@ -13,8 +13,8 @@ from utils import trainer as trainer_mod
 class EigenTrajectoryPredictor:
     def __init__(
         self,
-        cfg: str = "/home/snowhan1021/tools_paper/CANavi/prediction/eigen/eigentrajectory-stgcnn-lobby_data.json",
-        model_path: str = "/home/snowhan1021/tools_paper/CANavi/prediction/eigen/lobby_data/model_best.pth",
+        cfg: str = "src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json",
+        model_path: str = "src/canvas/predictors/eigen/lobby_data/model_best.pth",
         tag: str = "EigenTrajectory-TEMP",
         gpu_id: str = "cpu",
         test: bool = True,

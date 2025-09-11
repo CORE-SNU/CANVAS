@@ -10,9 +10,9 @@ class Predictors:
     def __init__(self, chosen_predictor='linear',
                  prediction_len=12,history_len=8,
                  dt=0.1,smoothing_factor=0.75,
-                 model_dir='src\canvas\predictors\trajectron\models_11_Feb_2025_10_01_22eth_vel_ar3',
+                 model_dir='src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3',
                  device='cpu',
-                 cfg='src\canvas\predictors\eigen\eigentrajectory-stgcnn-lobby_data.json'):
+                 cfg='src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
         """Predictor wrapper for different predictors.
 
         Args:
