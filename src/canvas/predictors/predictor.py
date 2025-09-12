@@ -13,7 +13,7 @@ class Predictors:
                  model_dir='src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3',
                  device='cpu',
                  cfg='src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
-        """Predictor wrapper for different predictors.
+        """Simple access class for different predictors.
 
         Args:
             chosen_predictor: One of {"linear","lin","trajectron","traj","tpp",

@@ -203,4 +203,3 @@ dependencies:
       - urllib3==2.3.0
       - xyzservices==2025.4.0
       - zarr==3.1.2
-prefix: /home/snowhan1021/anaconda3/envs/conformal
