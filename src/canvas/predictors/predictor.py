@@ -3,6 +3,8 @@ import numpy as np
 from .linear_predictor import LinearPredictor
 from .trajectron_predictor import TrajectronPredictor
 from .eigen.eigen_predictor_class import EigenTrajectoryPredictor
+from .gp_predictor import GaussianProcessPredictor
+
 import torch
 
 
@@ -13,7 +15,7 @@ class Predictors:
                  model_dir='src/canvas/predictors/eigen/models/lobby_data/model_best.pth', #'src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3'
                  device='cpu',
                  cfg='src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
-        """Predictor wrapper for different predictors.
+        """Simple access class for different predictors.
 
         Args:
             chosen_predictor: One of {"linear","lin","trajectron","traj","tpp",
@@ -53,6 +55,13 @@ class Predictors:
                 history_len=history_len,
                 model_path=model_dir,
                 cfg=cfg,)
+        elif name in ("gp","gpy", "gaussianprocess", "gaussian_process"):
+            self.PredictorModel=GaussianProcessPredictor(
+                prediction_len=prediction_len,
+                history_len=history_len,
+                dt=dt,
+                device=device,
+            )
         elif name in ("pytorch", "torch"):
             self.PredictorModel=torch.load(model_dir,map_location=device)
             self.PredictorModel.eval()
