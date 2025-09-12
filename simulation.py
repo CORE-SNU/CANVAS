@@ -3,9 +3,10 @@ import argparse
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
 import cv2
 import pathlib
-import os
 import subprocess
 import random
 import pickle
@@ -17,7 +18,7 @@ _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
 from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex,Predictor_CI
-from save_ci import save_ci_iteration_csv, save_frame_png
+from save_ci import save_ci_traj_per_agent_csv, save_ci_iteration_csv, save_frame_png
 
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
@@ -125,6 +126,7 @@ def main(goal_x, goal_y, num_iter, r_star):
         it_ci_ctrl_series = []   # list[np.ndarray]  (T,) per frame
         it_ci_obj         = []   # list[float]
         it_ci_ctrl_cost   = []   # list[float]
+        it_ci_traj_per_agent = []  # list[dict[pid -> np.ndarray(T,)]]
 
         buffer_timestamp = []
         buffer_infeasibility = []
@@ -138,8 +140,8 @@ def main(goal_x, goal_y, num_iter, r_star):
         goal = np.array([goal_x, goal_y])
 
         # ---- Choose predictor ----
-        data_dir = "/home/snowhan1021/tools_paper/CANavi/prediction/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
-        obj_predictor = Predictors(chosen_predictor='Linear',prediction_len=prediction_len,history_len=history_len, device='cpu')                                    # Trajectron++ predictor
+        #data_dir = "/home/~/tools_paper/CANavi/prediction/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
+        obj_predictor = Predictors(chosen_predictor='linear',prediction_len=prediction_len,history_len=history_len, device='cpu')                                    # Trajectron++ predictor
 
         controller = GridMPC(n_steps=prediction_len, dt=dt)
 
@@ -271,6 +273,30 @@ def main(goal_x, goal_y, num_iter, r_star):
             buffer_ci_traj_series.append(ci_traj_series)
             it_ci_traj_series.append(ci_traj_series)
 
+            # NEW) traj CI per-agent series
+            per_agent = {}
+            if isinstance(prediction_res, dict) and isinstance(valid_obs_future_true, dict):
+                common_pids = set(prediction_res.keys()) & set(valid_obs_future_true.keys())
+                for pid in common_pids:
+                    p = np.asarray(prediction_res[pid], dtype=np.float64)
+                    g = np.asarray(valid_obs_future_true[pid], dtype=np.float64)
+                    # sanity checks
+                    if p.ndim >= 2 and g.ndim >= 2 and p.shape[1] >= 2 and g.shape[1] >= 2:
+                        T = min(len(p), len(g))
+                        if T > 0:
+                            e = np.linalg.norm(p[:T, :2] - g[:T, :2], axis=1)  # per-step error
+                            ci = (rstar - e) / rstar
+                            ci = np.minimum(ci, 1.0)  # clip to 1.0
+                            # pad to prediction_len with NaN if shorter
+                            if ci.size < prediction_len:
+                                pad = np.full((prediction_len,), np.nan, dtype=np.float64)
+                                pad[:ci.size] = ci
+                                ci = pad
+                            else:
+                                ci = ci[:prediction_len]
+                            per_agent[pid] = ci
+            it_ci_traj_per_agent.append(per_agent)
+
             # 2) control CI (series)
             ci_ctrl_series = ci_ctrl(
                 ctrl_pred=velocity if velocity is not None else [],
@@ -380,6 +406,14 @@ def main(goal_x, goal_y, num_iter, r_star):
             buffer_vel = velocity
 
         # ===== Write per-iteration CI CSV =====
+        ci_pos_csv_path = save_ci_traj_per_agent_csv(
+            iter_out_dir=iter_out_dir,
+            iteration_index=times + 1,
+            it_ci_traj_per_agent=it_ci_traj_per_agent,
+            prediction_len=prediction_len
+        )
+        print(f"[iter {times+1}] per-agent traj CI CSV saved to: {ci_pos_csv_path}")
+        '''
         ci_csv_path = save_ci_iteration_csv(
             iter_out_dir=iter_out_dir,
             iteration_index=times + 1,
@@ -390,7 +424,8 @@ def main(goal_x, goal_y, num_iter, r_star):
             prediction_len=prediction_len
         )
         print(f"[iter {times+1}] CI CSV saved to: {ci_csv_path}")
-
+        '''
+        
         # ---- Iteration-level rates and summaries ----
         buffer_collision_rate.append(collision_count / max(1, frame))
         buffer_infeasible_rate.append(infeasible_count / max(1, frame))

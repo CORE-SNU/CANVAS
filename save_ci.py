@@ -14,6 +14,41 @@ from matplotlib.lines import Line2D
 # ============================================================
 # Save CI to .csv files per iteration 
 # ============================================================
+def save_ci_traj_per_agent_csv(iter_out_dir,
+                               iteration_index,
+                               it_ci_traj_per_agent,  # list[dict[pid -> np.ndarray(T,)]] per frame
+                               prediction_len):
+    """
+    Save per-agent per-step trajectory CI:
+      Columns: frame, pid, step, it_ci_traj_series
+    Path: <iter_out_dir>/ci_traj_per_agent_<iteration_index>.csv
+    """
+    iter_out_dir = pathlib.Path(iter_out_dir)
+    iter_out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = iter_out_dir / f"ci_traj_per_agent_{iteration_index:03d}.csv"
+
+    fieldnames = ["frame", "pid", "step", "it_ci_traj_series"]
+    with open(out_path, mode="w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+
+        # it_ci_traj_per_agent: list over frames; each item is {pid: np.ndarray(T,)}
+        for frame_idx, pid_map in enumerate(it_ci_traj_per_agent):
+            if not pid_map:
+                continue
+            for pid, series in pid_map.items():
+                arr = np.asarray(series, dtype=float).ravel()
+                # write up to prediction_len steps; step index is 1-based
+                for j in range(prediction_len):
+                    val = float(arr[j]) if arr.size > j and np.isfinite(arr[j]) else np.nan
+                    w.writerow({
+                        "frame": int(frame_idx),
+                        "pid": int(pid),
+                        "step": int(j + 1),
+                        "it_ci_traj_series": val,
+                    })
+    return str(out_path)
+
 def save_ci_iteration_csv(iter_out_dir,
                           iteration_index,
                           it_ci_traj_series,
