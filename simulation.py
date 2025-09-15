@@ -17,12 +17,7 @@ _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
 from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex,Predictor_CI
-<<<<<<< HEAD
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
-=======
-from save_ci import save_ci_iteration_csv, save_frame_png
->>>>>>> e61f0d06fb0d3d29b710f4645b6083db8819b183
-
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
 
@@ -277,7 +272,6 @@ def main(goal_x, goal_y, num_iter, r_star):
             buffer_ci_traj_series.append(ci_traj_series)
             it_ci_traj_series.append(ci_traj_series)
 
-<<<<<<< HEAD
             traj_anchor = "pred"  # or "gt"
             if isinstance(prediction_res, dict) and isinstance(valid_obs_future_true, dict):
                 common_pids = set(prediction_res.keys()) & set(valid_obs_future_true.keys())
@@ -304,8 +298,6 @@ def main(goal_x, goal_y, num_iter, r_star):
                                         "ci": cij
                                     })
 
-=======
->>>>>>> e61f0d06fb0d3d29b710f4645b6083db8819b183
             # 2) control CI (series)
             ci_ctrl_series = ci_ctrl(
                 ctrl_pred=velocity if velocity is not None else [],
@@ -431,7 +423,6 @@ def main(goal_x, goal_y, num_iter, r_star):
 
         '''
         # ===== Write per-iteration CI CSV =====
-<<<<<<< HEAD
         ci_pos_csv_path = save_ci_traj_per_agent_csv(
             iter_out_dir=iter_out_dir,
             iteration_index=times + 1,
@@ -440,8 +431,6 @@ def main(goal_x, goal_y, num_iter, r_star):
         )
         print(f"[iter {times+1}] per-agent traj CI CSV saved to: {ci_pos_csv_path}")
         
-=======
->>>>>>> e61f0d06fb0d3d29b710f4645b6083db8819b183
         ci_csv_path = save_ci_iteration_csv(
             iter_out_dir=iter_out_dir,
             iteration_index=times + 1,
@@ -452,7 +441,6 @@ def main(goal_x, goal_y, num_iter, r_star):
             prediction_len=prediction_len
         )
         print(f"[iter {times+1}] CI CSV saved to: {ci_csv_path}")
-<<<<<<< HEAD
         '''
         # --- (d) heatmap-ready CSVs ---
         traj_pos_csv = save_ci_traj_positions_csv(
@@ -469,9 +457,6 @@ def main(goal_x, goal_y, num_iter, r_star):
         )
         print(f"[iter {times+1}] CI(ctrl) local CSV saved: {ctrl_local_csv}")
         
-=======
-
->>>>>>> e61f0d06fb0d3d29b710f4645b6083db8819b183
         # ---- Iteration-level rates and summaries ----
         buffer_collision_rate.append(collision_count / max(1, frame))
         buffer_infeasible_rate.append(infeasible_count / max(1, frame))
