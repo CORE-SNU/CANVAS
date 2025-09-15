@@ -4,7 +4,7 @@ from .linear_predictor import LinearPredictor
 from .trajectron_predictor import TrajectronPredictor
 from .eigen.eigen_predictor_class import EigenTrajectoryPredictor
 from .gp_predictor import GaussianProcessPredictor
-
+from .koopcast_predictor import Koopcast_predictor
 import torch
 
 
@@ -60,6 +60,16 @@ class Predictors:
                 prediction_len=prediction_len,
                 history_len=history_len,
                 dt=dt,
+                device=device,
+            )
+        elif name in ("koopcast","mdnkoopman","mdn_koopman"):
+            self.PredictorModel=Koopcast_predictor(
+                prediction_len=prediction_len,
+                history_len=history_len,
+                dt=dt,
+                K_path='src/canvas/predictors/koopcast/data/biwi_eth_koopman_K_1.npy',
+                cfg_path='src/canvas/predictors/koopcast/data/biwi_eth_cfg.json',
+                mdn_pt_path='src/canvas/predictors/koopcast/data/biwi_eth_mdn.pt',
                 device=device,
             )
         elif name in ("pytorch", "torch"):

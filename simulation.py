@@ -139,7 +139,7 @@ def main(goal_x, goal_y, num_iter, r_star):
 
         # ---- Choose predictor ----
         data_dir = "/home/snowhan1021/tools_paper/CANavi/prediction/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
-        obj_predictor = Predictors(chosen_predictor='Linear',prediction_len=prediction_len,history_len=history_len, device='cpu')                                    # Trajectron++ predictor
+        obj_predictor = Predictors(chosen_predictor='Koopcast',prediction_len=prediction_len,history_len=history_len, device='cpu')                                    # Trajectron++ predictor
 
         controller = GridMPC(n_steps=prediction_len, dt=dt)
 
