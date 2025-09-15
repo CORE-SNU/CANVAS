@@ -18,7 +18,7 @@ _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
 from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex,Predictor_CI
-from save_ci import save_ci_traj_per_agent_csv, save_ci_iteration_csv, save_frame_png
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
 
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
@@ -124,9 +124,10 @@ def main(goal_x, goal_y, num_iter, r_star):
         # --- per-iteration CI buffers (for saving to csv file) ---
         it_ci_traj_series = []   # list[np.ndarray]  (T,) per frame
         it_ci_ctrl_series = []   # list[np.ndarray]  (T,) per frame
+        it_ci_traj_pos_rows = []   # rows: {frame, pid, step, x, y, ci}  (global pedestrian positions)
+        it_ci_ctrl_local_rows = [] # rows: {frame, step, x, y, ci}       (robot-centered local)
         it_ci_obj         = []   # list[float]
         it_ci_ctrl_cost   = []   # list[float]
-        it_ci_traj_per_agent = []  # list[dict[pid -> np.ndarray(T,)]]
 
         buffer_timestamp = []
         buffer_infeasibility = []
@@ -273,29 +274,31 @@ def main(goal_x, goal_y, num_iter, r_star):
             buffer_ci_traj_series.append(ci_traj_series)
             it_ci_traj_series.append(ci_traj_series)
 
-            # NEW) traj CI per-agent series
-            per_agent = {}
+            traj_anchor = "pred"  # or "gt"
             if isinstance(prediction_res, dict) and isinstance(valid_obs_future_true, dict):
                 common_pids = set(prediction_res.keys()) & set(valid_obs_future_true.keys())
                 for pid in common_pids:
-                    p = np.asarray(prediction_res[pid], dtype=np.float64)
+                    p = np.asarray(prediction_res[pid], dtype=np.float64)      # (~T, >=2)
                     g = np.asarray(valid_obs_future_true[pid], dtype=np.float64)
-                    # sanity checks
                     if p.ndim >= 2 and g.ndim >= 2 and p.shape[1] >= 2 and g.shape[1] >= 2:
-                        T = min(len(p), len(g))
+                        T = min(len(p), len(g), prediction_len)
                         if T > 0:
-                            e = np.linalg.norm(p[:T, :2] - g[:T, :2], axis=1)  # per-step error
-                            ci = (rstar - e) / rstar
-                            ci = np.minimum(ci, 1.0)  # clip to 1.0
-                            # pad to prediction_len with NaN if shorter
-                            if ci.size < prediction_len:
-                                pad = np.full((prediction_len,), np.nan, dtype=np.float64)
-                                pad[:ci.size] = ci
-                                ci = pad
-                            else:
-                                ci = ci[:prediction_len]
-                            per_agent[pid] = ci
-            it_ci_traj_per_agent.append(per_agent)
+                            err = np.linalg.norm(p[:T, :2] - g[:T, :2], axis=1)   # (T,)
+                            ci  = (rstar - err) / rstar
+                            ci  = np.minimum(ci, 1.0)                            # clip to 1.0
+                            xy_src = p if traj_anchor == "pred" else g
+                            for j in range(T):
+                                x, y = float(xy_src[j, 0]), float(xy_src[j, 1])
+                                cij  = float(ci[j])
+                                if np.isfinite(x) and np.isfinite(y) and np.isfinite(cij):
+                                    it_ci_traj_pos_rows.append({
+                                        "frame": int(frame),
+                                        "pid": int(pid),
+                                        "step": int(j + 1),  # 1-based
+                                        "x": x,
+                                        "y": y,
+                                        "ci": cij
+                                    })
 
             # 2) control CI (series)
             ci_ctrl_series = ci_ctrl(
@@ -304,6 +307,20 @@ def main(goal_x, goal_y, num_iter, r_star):
             )
             buffer_ci_ctrl_series.append(ci_ctrl_series)
             it_ci_ctrl_series.append(ci_ctrl_series)
+
+            ctrl_mode = "unicycle"  # or "cartesian"
+            T_ctrl = min(len(ci_ctrl_series), len(velocity) if velocity is not None else 0)
+            for k in range(T_ctrl):
+                dx, dy = project_ctrl_step_to_local_xy(velocity[k], dt, mode=ctrl_mode)
+                ci_k   = float(ci_ctrl_series[k])
+                if np.isfinite(dx) and np.isfinite(dy) and np.isfinite(ci_k):
+                    it_ci_ctrl_local_rows.append({
+                        "frame": int(frame),
+                        "step": int(k + 1),  # 1-based
+                        "x": float(dx),      # local displacement for this step
+                        "y": float(dy),
+                        "ci": ci_k
+                    })
 
             # 3) obj CI (scalar) -- uses total objective (minimal vs minimal_gt)
             ci_obj_val = ci_obj(minimal=minimal, minimal_gt=minimal_gt)
@@ -318,6 +335,7 @@ def main(goal_x, goal_y, num_iter, r_star):
             buffer_ci_ctrl_cost.append(ci_ctrlcost_val)
             it_ci_ctrl_cost.append(ci_ctrlcost_val)
 
+            '''
             # --------- Visualization (CI labels disabled by default) ---------
             try:
                 save_frame_png(
@@ -335,7 +353,7 @@ def main(goal_x, goal_y, num_iter, r_star):
                 )
             except Exception as e:
                 print(f"[WARN] viz save failed at frame {frame}: {e}")
-
+            '''
             # --------- Feasibility handling ---------
             buffer_infeasibility.append(info.get('feasible', True))
             if not info.get('feasible', True):
@@ -405,6 +423,7 @@ def main(goal_x, goal_y, num_iter, r_star):
             frame += 1
             buffer_vel = velocity
 
+        '''
         # ===== Write per-iteration CI CSV =====
         ci_pos_csv_path = save_ci_traj_per_agent_csv(
             iter_out_dir=iter_out_dir,
@@ -413,7 +432,7 @@ def main(goal_x, goal_y, num_iter, r_star):
             prediction_len=prediction_len
         )
         print(f"[iter {times+1}] per-agent traj CI CSV saved to: {ci_pos_csv_path}")
-        '''
+        
         ci_csv_path = save_ci_iteration_csv(
             iter_out_dir=iter_out_dir,
             iteration_index=times + 1,
@@ -425,6 +444,20 @@ def main(goal_x, goal_y, num_iter, r_star):
         )
         print(f"[iter {times+1}] CI CSV saved to: {ci_csv_path}")
         '''
+        # --- (d) heatmap-ready CSVs ---
+        traj_pos_csv = save_ci_traj_positions_csv(
+            iter_out_dir=iter_out_dir,
+            iteration_index=times + 1,
+            rows=it_ci_traj_pos_rows
+        )
+        print(f"[iter {times+1}] CI(traj) positions CSV saved: {traj_pos_csv}")
+
+        ctrl_local_csv = save_ci_ctrl_local_csv(
+            iter_out_dir=iter_out_dir,
+            iteration_index=times + 1,
+            rows=it_ci_ctrl_local_rows
+        )
+        print(f"[iter {times+1}] CI(ctrl) local CSV saved: {ctrl_local_csv}")
         
         # ---- Iteration-level rates and summaries ----
         buffer_collision_rate.append(collision_count / max(1, frame))
