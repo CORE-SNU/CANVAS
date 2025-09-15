@@ -28,7 +28,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
-
+import json
 # ---------------------- Hyperparameters & Defaults ----------------------
 HISTORY_LENGTH_DEFAULT = 8
 PRED_LENGTH_DEFAULT    = 12
@@ -419,11 +419,10 @@ def evaluate_from_obs_all(
     return preds
 
 # ---------------------- Main ----------------------
-
 def create():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train_dir', type=str, default='/home/snowhan/conformal_prediction/lobby2/biwi_hotel/train')
-    parser.add_argument('--test_file', type=str, default='/home/snowhan/tools_paper/CANavi/biwi_hotel.npy')
+    parser.add_argument('--train_dir', type=str, default='lobby3/train')
+    parser.add_argument('--test_file', type=str, default='lobby3/test/0.npy')
     parser.add_argument('--history', type=int, default=HISTORY_LENGTH_DEFAULT)
     parser.add_argument('--pred', type=int, default=PRED_LENGTH_DEFAULT)
     parser.add_argument('--mdn_K', type=int, default=MDN_COMPONENTS_DEFAULT)
@@ -443,15 +442,35 @@ def create():
 
     args = parser.parse_args()
 
+    # -------- Save paths in this script's directory, named by test_file prefix --------
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        script_dir = os.getcwd()
+    test_prefix = os.path.splitext(os.path.basename(args.test_file))[0]
+
+    # MDN path: <prefix>_mdn.pt (if save_mdn='mdn.pt')
+    args.save_mdn = os.path.join(
+        script_dir, f"{test_prefix}_{os.path.basename(args.save_mdn)}"
+    )
+    # Koopman K path: <prefix>_koopman_K_1.npy (if save_K='koopman_K_1.npy')
+    args.save_K = os.path.join(
+        script_dir, f"{test_prefix}_{os.path.basename(args.save_K)}"
+    )
+    # JSON cfg path: <prefix>_cfg.json  (e.g., biwi_hotel_cfg.json)
+    cfg_path = os.path.join(script_dir, f"{test_prefix}_cfg.json")
+    # ----------------------------------------------------------------------------------
+
     H, P = args.history, args.pred
-    maxN  = max(0, int(args.max_neighbors))
-    R     = float(args.neighbor_radius)
-    rel   = bool(int(args.neighbor_relative))
+    maxN = max(0, int(args.max_neighbors))
+    R = float(args.neighbor_radius)
+    rel = bool(int(args.neighbor_relative))
 
     train_files = glob.glob(os.path.join(args.train_dir, '*.npy'))
     if len(train_files) == 0:
         raise FileNotFoundError(f"No .npy files found under {args.train_dir}")
     print(f"Found {len(train_files)} train files.")
+
     X, Y = collect_mdn_dataset_multiagent(
         train_files, H, P, max_neighbors=maxN, neighbor_radius=R, neighbor_relative=rel
     )
@@ -463,6 +482,7 @@ def create():
         epochs=args.mdn_epochs, batch_size=args.mdn_batch, lr=args.mdn_lr,
         device=args.device
     )
+
     torch.save(mdn.state_dict(), args.save_mdn)
     print(f"Saved MDN to {args.save_mdn}")
 
@@ -470,6 +490,29 @@ def create():
     K = estimate_K(Pmat, Fmat, ridge=args.ridge)
     np.save(args.save_K, K)
     print(f"Estimated K with shape {K.shape}, saved to {args.save_K}")
-    return H,P,mdn,K,args.samples, args.device, maxN,R,rel
+
+    # ---------------- Save JSON config for evaluate_from_obs_all (no MDN) ----------------
+    cfg = {
+        "H": int(H),
+        "P": int(P),
+        "device": str(args.device),
+        "K_path": args.save_K,                 # absolute path to Koopman K
+        "max_neighbors": int(maxN),
+        "neighbor_radius": float(R),
+        "neighbor_relative": bool(rel),
+        # optional but handy metadata:
+        "test_file": str(args.test_file),
+        "train_dir": str(args.train_dir),
+        "feature_in_dim": int(in_dim),
+    }
+    with open(cfg_path, "w") as f:
+        json.dump(cfg, f, indent=2)
+    print(  "Saved eval cfg to {cfg_path}")
+    # -------------------------------------------------------------------------------------
+
+    return H, P, mdn, K, args.samples, args.device, maxN, R, rel
+
+if __name__ == '__main__':
+    create()
 
 
