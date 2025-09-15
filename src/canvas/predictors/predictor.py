@@ -12,7 +12,7 @@ class Predictors:
     def __init__(self, chosen_predictor='linear',
                  prediction_len=12,history_len=8,
                  dt=0.1,smoothing_factor=0.75,
-                 model_dir='src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3',
+                 model_dir='src/canvas/predictors/eigen/models/lobby_data/model_best.pth', #'src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3'
                  device='cpu',
                  cfg='src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
         """Simple access class for different predictors.
@@ -51,7 +51,7 @@ class Predictors:
         elif name in ("eigen", "eigentrajectory", "eigen_traj"):
             # Eigen predictor)
             self.PredictorModel = EigenTrajectoryPredictor(
-                prediction_len=prediction_len,
+                target_prediction_length=prediction_len,
                 history_len=history_len,
                 model_path=model_dir,
                 cfg=cfg,)

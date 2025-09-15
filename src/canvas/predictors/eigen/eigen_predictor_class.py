@@ -15,8 +15,8 @@ import importlib
 baseline = importlib.import_module("baseline")
 
 from EigenTrajectory import EigenTrajectory
-from utils.utils import get_exp_config, DotDict
-from utils import trainer as trainer_mod
+from .utils.utils import get_exp_config, DotDict
+from .utils import trainer as trainer_mod
 
 from ..wrapper_predictor import BasePredictors
 
