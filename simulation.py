@@ -70,7 +70,7 @@ for region in regions:
 # -----------------------------
 # Main
 # -----------------------------
-def main(goal_x, goal_y, num_iter, r_star):
+def main(goal_x, goal_y, num_iter, r_star, dataset):
     # Simulation rates
     dt = 0.10
 
@@ -493,8 +493,9 @@ if __name__ == "__main__":
     parser.add_argument('--goal_y', type=float, default=0.2)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
     parser.add_argument('--r_star', type=float, default=0.5)
+    parser.add_argument('--dataset', type=str, default="Lobby")
     args = parser.parse_args()
 
-    main(args.goal_x, args.goal_y, args.num_iter, args.r_star)
+    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset)
 
 
