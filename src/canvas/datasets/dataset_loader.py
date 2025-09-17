@@ -15,8 +15,8 @@ def load_dataset(name_or_path: Union[str, os.PathLike]):
       - 'HOTEL'      -> biwi_hotel.npy
       - 'ZARA1'      -> crowds_zara01.npy
       - 'ZARA2'      -> crowds_zara02.npy
-      - 'STUDENTS001' (alias: 'STUDENTS1') -> students001.npy
-      - 'STUDENTS003' (aliases: 'UNIV', 'STUDENTS3') -> students003.npy
+      - 'STUDENTS001'-> students001.npy(alias: 'STUDENTS1')
+      - 'STUDENTS003'-> students003.npy(aliases: 'UNIV', 'STUDENTS3')
       - '0'          -> 0.npy  (if you need that file)
 
     You can also pass a relative/absolute path like 'datasets/biwi_eth.npy'.

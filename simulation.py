@@ -16,7 +16,7 @@ _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
 from src.canvas import Environment, Box, GridMPC, \
-    AdaptiveConformalPredictionModule, Predictors, CompetencyIndex,Predictor_CI
+    AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
