@@ -70,7 +70,7 @@ for region in regions:
 # -----------------------------
 # Main
 # -----------------------------
-def main(goal_x, goal_y, num_iter, r_star, dataset):
+def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
     # Simulation rates
     dt = 0.10
 
@@ -139,8 +139,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset):
         goal = np.array([goal_x, goal_y])
 
         # ---- Choose predictor ----
-        data_dir = "/home/snowhan1021/tools_paper/CANavi/prediction/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
-        obj_predictor = Predictors(chosen_predictor='Koopcast',prediction_len=prediction_len,history_len=history_len, device='cpu')                                    # Trajectron++ predictor
+        #data_dir = "/home/snowhan1021/tools_paper/CANavi/prediction/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
+        obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')                                    # Trajectron++ predictor
 
         controller = GridMPC(n_steps=prediction_len, dt=dt)
 
@@ -488,14 +488,20 @@ def main(goal_x, goal_y, num_iter, r_star, dataset):
     }
 
 if __name__ == "__main__":
+    print("===================================")
+    print("Enter the variables : --goal_x, --goal_y, --num_iter, --r_star, --dataset, --predictor")
+    print("--dataset : ETH, Hotel, Univ, Zara01, Zara02, Lobby")
+    print("--predictor : linear, gp, eigen, traj, koopcast")
+    print("===================================")
     parser = argparse.ArgumentParser()
     parser.add_argument('--goal_x', type=float, default=8.0)  # 8.0 , 6.0
     parser.add_argument('--goal_y', type=float, default=0.2)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
     parser.add_argument('--r_star', type=float, default=0.5)
     parser.add_argument('--dataset', type=str, default="Lobby")
+    parser.add_argument('--predictor', type=str, default="linear")
     args = parser.parse_args()
 
-    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset)
+    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor)
 
 

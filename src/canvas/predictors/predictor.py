@@ -14,6 +14,7 @@ class Predictors:
                  dt=0.1,smoothing_factor=0.75,
                  model_dir='src/canvas/predictors/eigen/models/lobby_data/model_best.pth', #'src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3'
                  device='cpu',
+                 dataset='Lobby',
                  cfg='src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
         """Simple access class for different predictors.
 
@@ -42,6 +43,24 @@ class Predictors:
 
         elif name in ("trajectron", "traj", "tpp"):
             # Trajectron++ predictor
+            if(dataset=='ETH'):
+                model_dir="src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3"
+            elif(dataset=='Hotel'):
+                model_dir="src/canvas/predictors/trajectron/models_10_Feb_2025_21_00_50hotel_vel_ar3"
+            elif(dataset=='Univ'):
+                model_dir="src/canvas/predictors/trajectron/models_10_Feb_2025_15_01_26_univ_vel_ar3"
+            elif(dataset=='Zara01'):
+                model_dir="src/canvas/predictors/trajectron/models_10_Feb_2025_11_19_14_zara01_vel_ar3"
+            elif(dataset=='Zara02'):
+                model_dir="src/canvas/predictors/trajectron/models_03_Feb_2025_14_11_39_zara02_vel_ar3"
+            elif(dataset=='Lobby'):
+                model_dir="src/canvas/predictors/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
+            else:
+                raise ValueError(
+                    f"Unknown dataset '{dataset}'. "
+                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                )
+
             self.PredictorModel = TrajectronPredictor(
                 prediction_len=prediction_len,
                 model_dir=model_dir,
@@ -49,13 +68,39 @@ class Predictors:
             )
 
         elif name in ("eigen", "eigentrajectory", "eigen_traj"):
-            # Eigen predictor)
+            # EigenTrajectory predictor
+            if(dataset=='ETH'):
+                model_dir="src/canvas/predictors/eigen/eth/model_best.pth"
+                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-eth.json"
+            elif(dataset=='Hotel'):
+                model_dir="src/canvas/predictors/eigen/hotel/model_best.pth"
+                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-hotel.json"
+            elif(dataset=='Univ'):
+                model_dir="src/canvas/predictors/eigen/uni/model_best.pth"
+                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-uni.json"
+            elif(dataset=='Zara01'):
+                model_dir="src/canvas/predictors/eigen/zara01/model_best.pth"
+                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara01.json"
+            elif(dataset=='Zara02'):
+                model_dir="src/canvas/predictors/eigen/zara02/model_best.pth"
+                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara02.json"
+            elif(dataset=='Lobby'):
+                model_dir="src/canvas/predictors/eigen/lobby_data/model_best.pth"
+                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json"
+            else:
+                raise ValueError(
+                    f"Unknown dataset '{dataset}'. "
+                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                )
+
             self.PredictorModel = EigenTrajectoryPredictor(
                 target_prediction_length=prediction_len,
                 history_len=history_len,
                 model_path=model_dir,
                 cfg=cfg,)
+            
         elif name in ("gp","gpy", "gaussianprocess", "gaussian_process"):
+            # GaussianProcess predictor
             self.PredictorModel=GaussianProcessPredictor(
                 prediction_len=prediction_len,
                 history_len=history_len,
@@ -63,13 +108,44 @@ class Predictors:
                 device=device,
             )
         elif name in ("koopcast","mdnkoopman","mdn_koopman"):
+            # KoopCast predictor
+            if(dataset=='ETH'):
+                k_path='src/canvas/predictors/koopcast/data/biwi_eth_koopman_K_1.npy'
+                cfg='src/canvas/predictors/koopcast/data/biwi_eth_cfg.json'
+                mdn_pt='src/canvas/predictors/koopcast/data/biwi_eth_mdn.pt'
+            elif(dataset=='Hotel'):
+                k_path='src/canvas/predictors/koopcast/data/biwi_hotel_koopman_K_1.npy'
+                cfg='src/canvas/predictors/koopcast/data/biwi_hotel_cfg.json'
+                mdn_pt='src/canvas/predictors/koopcast/data/biwi_hotel_mdn.pt'
+            elif(dataset=='Univ'):
+                k_path='src/canvas/predictors/koopcast/data/univ_koopman_K_1.npy'
+                cfg='src/canvas/predictors/koopcast/data/univ_cfg.json'
+                mdn_pt='src/canvas/predictors/koopcast/data/univ_mdn.pt'
+            elif(dataset=='Zara01'):
+                k_path='src/canvas/predictors/koopcast/data/crowds_zara01_koopman_K_1.npy'
+                cfg='src/canvas/predictors/koopcast/data/crowds_zara01_cfg.json'
+                mdn_pt='src/canvas/predictors/koopcast/data/crowds_zara01_mdn.pt'
+            elif(dataset=='Zara02'):
+                k_path='src/canvas/predictors/koopcast/data/crowds_zara02_koopman_K_1.npy'
+                cfg='src/canvas/predictors/koopcast/data/crowds_zara02_cfg.json'
+                mdn_pt='src/canvas/predictors/koopcast/data/crowds_zara02_mdn.pt'
+            elif(dataset=='Lobby'):
+                k_path='src/canvas/predictors/koopcast/data/0_koopman_K_1.npy'
+                cfg='src/canvas/predictors/koopcast/data/0_cfg.json'
+                mdn_pt='src/canvas/predictors/koopcast/data/0_mdn.pt'
+            else:
+                raise ValueError(
+                    f"Unknown dataset '{dataset}'. "
+                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                    )
+
             self.PredictorModel=Koopcast_predictor(
                 prediction_len=prediction_len,
                 history_len=history_len,
                 dt=dt,
-                K_path='src/canvas/predictors/koopcast/data/biwi_eth_koopman_K_1.npy',
-                cfg_path='src/canvas/predictors/koopcast/data/biwi_eth_cfg.json',
-                mdn_pt_path='src/canvas/predictors/koopcast/data/biwi_eth_mdn.pt',
+                K_path=k_path,
+                cfg_path=cfg,
+                mdn_pt_path=mdn_pt,
                 device=device,
             )
         elif name in ("pytorch", "torch"):
