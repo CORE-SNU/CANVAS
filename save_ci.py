@@ -170,7 +170,14 @@ def save_frame_png(outdir,
                   alpha=alpha, aspect='auto')
         ax.set_xlim(xmin, xmax)
         ax.set_ylim(ymin, ymax)
-        ax.set_aspect((xmax - xmin) / (ymax - ymin))
+        ax.set_aspect('equal')
+        #ax.set_aspect((xmax - xmin) / (ymax - ymin))
+        ax.autoscale(False)
+        for artist in ax.get_children():
+            try:
+                artist.set_clip_on(True)
+            except Exception:
+                pass
 
     # Static boxes - gray
     if static_boxes:
@@ -180,15 +187,17 @@ def save_frame_png(outdir,
             poly = Polygon(b.vertices, closed=True,
                            facecolor='gray', edgecolor='gray',
                            linewidth=1, zorder=0.1)
-            ax.add_patch(poly)
+            #ax.add_patch(poly)
 
     # Robot trajectory / current / goal
     px, py = robot_traj_xy
+    '''
     if len(px) and len(py):
         ax.plot(px, py, linewidth=2)
     ax.scatter([robot_xy[0]], [robot_xy[1]], marker='o', s=30)
     if goal_xy is not None:
         ax.scatter([goal_xy[0]], [goal_xy[1]], marker='*', s=80)
+    '''
 
     # History(8)
     if valid_obs:
@@ -250,8 +259,8 @@ def save_frame_png(outdir,
     ]
     ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
 
-    ax.set_aspect('equal', adjustable='box')
-    ax.set_xlim(*xlim); ax.set_ylim(*ylim)
+    #ax.set_aspect('equal', adjustable='box')
+    #ax.set_xlim(*xlim); ax.set_ylim(*ylim)
     ax.grid(True, alpha=0.2)
     fig.tight_layout()
 

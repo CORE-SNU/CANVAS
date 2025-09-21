@@ -70,22 +70,22 @@ class Predictors:
         elif name in ("eigen", "eigentrajectory", "eigen_traj"):
             # EigenTrajectory predictor
             if(dataset=='ETH'):
-                model_dir="src/canvas/predictors/eigen/eth/model_best.pth"
+                model_dir="src/canvas/predictors/eigen/models/eth/model_best.pth"
                 cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-eth.json"
             elif(dataset=='Hotel'):
-                model_dir="src/canvas/predictors/eigen/hotel/model_best.pth"
+                model_dir="src/canvas/predictors/eigen/models/hotel/model_best.pth"
                 cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-hotel.json"
             elif(dataset=='Univ'):
-                model_dir="src/canvas/predictors/eigen/uni/model_best.pth"
+                model_dir="src/canvas/predictors/eigen/models/uni/model_best.pth"
                 cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-uni.json"
             elif(dataset=='Zara01'):
-                model_dir="src/canvas/predictors/eigen/zara01/model_best.pth"
+                model_dir="src/canvas/predictors/eigen/models/zara01/model_best.pth"
                 cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara01.json"
             elif(dataset=='Zara02'):
-                model_dir="src/canvas/predictors/eigen/zara02/model_best.pth"
+                model_dir="src/canvas/predictors/eigen/models/zara02/model_best.pth"
                 cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara02.json"
             elif(dataset=='Lobby'):
-                model_dir="src/canvas/predictors/eigen/lobby_data/model_best.pth"
+                model_dir="src/canvas/predictors/eigen/models/lobby_data/model_best.pth"
                 cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json"
             else:
                 raise ValueError(
@@ -94,10 +94,11 @@ class Predictors:
                 )
 
             self.PredictorModel = EigenTrajectoryPredictor(
-                target_prediction_length=prediction_len,
+                prediction_len=prediction_len,
                 history_len=history_len,
+                cfg=cfg,
                 model_path=model_dir,
-                cfg=cfg,)
+            )
             
         elif name in ("gp","gpy", "gaussianprocess", "gaussian_process"):
             # GaussianProcess predictor

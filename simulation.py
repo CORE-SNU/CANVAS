@@ -1,7 +1,5 @@
 import time
 import argparse
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import pathlib
@@ -21,6 +19,7 @@ from src.canvas import Environment, Box, GridMPC, \
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
+from math import radians, cos, sin
 
 """
 Simulation pipeline (per frame):
@@ -36,7 +35,9 @@ Simulation pipeline (per frame):
 # -----------------------------
 # Static map geometry → boxes
 # -----------------------------
-persistent_static_boxes = []    # Save static object as bounding box
+#persistent_static_boxes = []    # Save static object as bounding box
+
+'''
 regions = [
     {"name": "glass door below", "xmin": 0.3, "xmax": 5.0, "ymin": -12.0, "ymax": -6.3},
     {"name": "left glass", "xmin": -7.0, "xmax": 0.3, "ymin": -12.0, "ymax": -8.5},
@@ -67,6 +68,36 @@ for region in regions:
         pos=np.array([x_center, y_center])
     )
     persistent_static_boxes.append(box)
+'''
+def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e-3) -> Box:
+    xmin, xmax = region["xmin"], region["xmax"]
+    ymin, ymax = region["ymin"], region["ymax"]
+    x_center = (xmin + xmax) / 2.0
+    y_center = (ymin + ymax) / 2.0
+    w = xmax - xmin
+    h = ymax - ymin
+    deg = float(region.get("deg", default_deg))
+    rad = radians(deg)
+    
+    corners = np.array([
+        [-w/2, -h/2],
+        [ w/2, -h/2],
+        [ w/2,  h/2],
+        [-w/2,  h/2],
+    ], dtype=float)
+    
+    c, s = cos(rad), sin(rad)
+    R = np.array([[c, -s],
+                  [s,  c]], dtype=float)
+    rot_corners = (corners @ R.T) + np.array([x_center, y_center])
+    return Box(
+        x=x_center, y=y_center, w=w, h=h,
+        deg=deg, rad=rad, area=w*h,
+        vertices=rot_corners,
+        resolution=resolution,
+        pos=np.array([x_center, y_center], dtype=float)
+    )
+
 
 # -----------------------------
 # Main
@@ -74,6 +105,8 @@ for region in regions:
 def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
     # Simulation rates
     dt = 0.10
+
+    persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
 
     # Predictor horizon
     prediction_len = 12
@@ -173,12 +206,23 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
         buffer_vel = []
         done = False
 
+        datasets_dir = os.path.join(_DATA_DIR, "src", "canvas", "datasets")
+        fname_map = {
+            "Lobby":  "0.npy",
+            "ETH":    "biwi_eth.npy",
+            "Hotel":  "biwi_hotel.npy",
+            "Zara01": "crowds_zara01.npy",
+            "Zara02": "crowds_zara02.npy",
+            "Univ":   "students003.npy",
+        }
+        npy_path = os.path.join(datasets_dir, fname_map[dataset])
+
         # iteration output dir for viz
         iter_out_dir = pathlib.Path("viz") / f"iter_{times+1:03d}"
         iter_out_dir.mkdir(parents=True, exist_ok=True)
 
         environment = Environment(
-            filepath=os.path.join('0.npy'),
+            filepath=npy_path,
             dt=dt,
             init_robot_pose=init_robot_pose,
             t_begin=t_begin,
