@@ -15,6 +15,7 @@ import sys
 _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
+from src.canvas.datasets.dataset_loader import get_dataset_spec
 from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
@@ -333,7 +334,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
             buffer_ci_ctrl_cost.append(ci_ctrlcost_val)
             it_ci_ctrl_cost.append(ci_ctrlcost_val)
 
-            '''
+            
             # --------- Visualization (CI labels disabled by default) ---------
             try:
                 save_frame_png(
@@ -347,11 +348,11 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    annotate_ci=True  # keep False here; enable later if needed
+                    annotate_ci=False  # keep False here; enable later if needed
                 )
             except Exception as e:
                 print(f"[WARN] viz save failed at frame {frame}: {e}")
-            '''
+            
             # --------- Feasibility handling ---------
             buffer_infeasibility.append(info.get('feasible', True))
             if not info.get('feasible', True):

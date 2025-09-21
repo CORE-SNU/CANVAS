@@ -3,11 +3,13 @@ import os
 import csv
 import numpy as np
 import pathlib
+from typing import Dict, Tuple, Optional, Iterable
+from src.canvas import Box
 
 # --- Matplotlib (headless) ---
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Polygon
+from matplotlib.patches import Circle, Polygon, Rectangle
 from matplotlib.lines import Line2D
 
 
@@ -149,12 +151,26 @@ def save_frame_png(outdir,
                    ci_fontsize=7,
                    max_ci_annotations_per_step=None,
                    xlim=(-2.5, 10.0),  #(-7.5, 13.5)
-                   ylim=(-10.0, 2.0)): #(-12.5, 5.5)
+                   ylim=(-10.0, 2.0),  #(-12.5, 5.5)
+                   background_image: Optional[np.ndarray] = None,  
+                   background_extent: Optional[Tuple[float, float, float, float]] = None,  # (xmin, xmax, ymin, ymax)
+                   background_alpha: Optional[float] = None):
+                   
     """
     Draw history / GT future / prediction with static boxes and robot.
     Saves: <outdir>/frame_<frame_idx>.png
     """
     fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
+
+    # Background image
+    if background_image is not None and background_extent is not None:
+        alpha = 0.6 if background_alpha is None else background_alpha
+        xmin, xmax, ymin, ymax = background_extent
+        ax.imshow(background_image, extent=(xmin, xmax, ymin, ymax),
+                  alpha=alpha, aspect='auto')
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
+        ax.set_aspect((xmax - xmin) / (ymax - ymin))
 
     # Static boxes - gray
     if static_boxes:
