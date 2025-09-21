@@ -15,7 +15,7 @@ import sys
 _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
-from src.canvas.datasets.dataset_loader import get_dataset_spec
+from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
 from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
@@ -138,6 +138,11 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
         buffer_control = []
 
         goal = np.array([goal_x, goal_y])
+
+        spec = get_dataset_spec(dataset)
+        bg_img = _load_background_image(spec.bg.path, spec.bg.rotate90)
+        bg_extent = spec.bg.extent
+        bg_alpha = spec.bg.alpha
 
         # ---- Choose predictor ----
         #data_dir = "/home/snowhan1021/tools_paper/CANavi/prediction/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
@@ -348,7 +353,10 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    annotate_ci=False  # keep False here; enable later if needed
+                    annotate_ci=False,  # keep False here; enable later if needed
+                    background_image=bg_img,
+                    background_extent=bg_extent,
+                    background_alpha=bg_alpha
                 )
             except Exception as e:
                 print(f"[WARN] viz save failed at frame {frame}: {e}")

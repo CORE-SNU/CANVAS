@@ -80,6 +80,19 @@ class DatasetSpec:
     bg: BgSpec
     static_boxes: List[Box]
 
+def _load_background_image(pathlike, rotate90: bool):
+    img = cv2.imread(str(pathlike), cv2.IMREAD_UNCHANGED)
+    if img is None:
+        raise FileNotFoundError(pathlike)
+    if rotate90:
+        h, w = img.shape[:2]
+        M = cv2.getRotationMatrix2D((w/2, h/2), 90, 1.0)
+        img = cv2.warpAffine(img, M, (w, h))
+    # BGR → RGB
+    if img.ndim == 3 and img.shape[2] == 3:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return img
+
 def _make_lobby_boxes() -> List[Box]:
     regs = [
         {"name": "glass door below", "xmin": 0.3, "xmax": 5.0, "ymin": -12.0, "ymax": -6.3},
