@@ -3,7 +3,7 @@ Below is a sample run code for the bare minimum imports required to call the pre
 
 ```python
 from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, Box, GridMPC, AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
+from src.canvas import Environment, GridMPC, AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
 
 # setup: dataset, predictor, simulation environment, controller, competency index
