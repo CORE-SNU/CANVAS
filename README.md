@@ -39,6 +39,7 @@ obs = env.reset()
 # make module for filtering valid history and future predictions.
 dynamic obs= # module to be implemented.
 for t in range(200):
+            #make all-in-one module for the processes below?
             prediction_res = predictor(obs)
             confidence_intervals = cp_module.update(dynamic_obs, prediction_res if isinstance(prediction_res, dict) else {})
             velocity, info, minimum, intermediate, terminal, control, minimal = controller(
