@@ -7,11 +7,8 @@ from src.canvas import Environment, GridMPC, AdaptiveConformalPredictionModule, 
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
 
 # setup: dataset, predictor, simulation environment, controller, competency index
-dataset: Dataset = load_dataset(id='ETH')
-predictor = TrajectronPlusPlus()
-predictor.load('eth_pretrained.pth')
-conformal_predictor = ACI(score_function=ActionDiscrepancy, stepsize=1e-3, target_miscoverage=0.1, threshold=1.)
-
+obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')         
+ci_traj     = CompetencyIndex(case="traj",      r_star=rstar, return_type="series")
 env = SimulationEnv(dataset)
 cost_function = L2Euclidean(goal=env.goal, terminal_weight=10.)
 controller = MPPI(kinematic_model='differential_drive', cost_function=cost_function)
