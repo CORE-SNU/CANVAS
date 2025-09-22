@@ -9,6 +9,8 @@ from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_
 # setup: dataset, predictor, simulation environment, controller, competency index
 obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')         
 ci_traj     = CompetencyIndex(case="traj",      r_star=rstar, return_type="series")
+t_begin=40 # time step to begin environment in dataset
+t_end= 300 # time step to end environment in dataset
 environment = Environment(
             filepath=npy_path,
             dt=dt,
