@@ -17,7 +17,9 @@ t_begin=40 # time step to begin environment in dataset
 t_end= 300 # time step to end environment in dataset
 dt= 0.4
 init_robot_pose=np.array([0, 0, np.pi / 2.])
-environment = Environment(
+max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1)
+offline_calibration_set = {i: [] for i in range(prediction_len)}
+env = Environment(
             filepath=npy_path,
             dt=dt,
             init_robot_pose=init_robot_pose,
@@ -30,16 +32,27 @@ cp_module = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
                                                       max_interval_lengths=max_interval_lengths,
                                                       sample_size=20,
                                                       offline_calibration_set=offline_calibration_set)
-cost_function = L2Euclidean(goal=env.goal, terminal_weight=10.)
-controller = MPPI(kinematic_model='differential_drive', cost_function=cost_function)
-index = CostCompetencyIndex(conformal_predictor=conformal_predictor, controller=controller)
+controller = GridMPC(n_steps=prediction_len, dt=dt)
 
 # simulation loop
 obs = env.reset()
-
+# make module for filtering valid history and future predictions.
+dynamic obs= # module to be implemented.
 for t in range(200):
-    prediction_res = predictor(obs)
-    action, controller_info = controller(obs, prediction_res)
+            prediction_res = predictor(obs)
+            confidence_intervals = cp_module.update(dynamic_obs, prediction_res if isinstance(prediction_res, dict) else {})
+            velocity, info, minimum, intermediate, terminal, control, minimal = controller(
+                pos_x=position_x,
+                pos_y=position_y,
+                orientation_z=orientation_z,
+                linear_x=linear_x,
+                angular_z=angular_z,
+                boxes=persistent_static_boxes,
+                predictions=prediction_res if isinstance(prediction_res, dict) else {},
+                confidence_intervals=confidence_intervals,
+                goal=goal
+            )
+#update the below section a bit more
     index.update({'obs': obs, 'pred': prediction_res, 'action': action}, step=t)
     idx = index.compute_index()
     obs = env.sim(action)
