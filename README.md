@@ -1,15 +1,11 @@
 # CANVAS: Competency-Aware Navigation Assessment for Pedestrian Trajectory Forecasting
-
+Below is a sample run code for the bare minimum imports required to call the predictors and competency index implemented into our code.
 
 ```python
-from canvas.datasets import load_dataset, Dataset
-from canvas.predictors import TrajectronPlusPlus
-from canvas.controllers import MPPI
-from canvas.envs import SimulationEnv
-from canvas.conformal_predictors import ACI
-from canvas.conformal_predictors.score_functions import CostDiscrepancy
-from canvas.competency_indices import CostCompetencyIndex
-from canvas.controllers.cost_functions import L2Euclidean
+from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
+from src.canvas import Environment, Box, GridMPC, \
+    AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
 
 # setup: dataset, predictor, simulation environment, controller, competency index
 dataset: Dataset = load_dataset(id='ETH')
