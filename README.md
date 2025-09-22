@@ -35,3 +35,26 @@ for t in range(200):
 # logging
 index.save_res('competency_example.npy')
 ```
+
+---
+
+## Running the simulation
+
+You can run the simulation with "simulation.py" with some variables
+
+* --goal_x, --goal_y : Goal position for control test
+* --num_iter : Number of iterations for simulation
+* --r_star : Threshold value $R^*$ of computating the Competency Index (CI)
+* --dataset : Select the dataset
+    * ETH
+    * Hotel
+    * Univ
+    * Zara01
+    * Zara02
+    * Lobby
+* --predictor : Select the predictor
+    * linear (Linear predictor)
+    * gp (GP predictor)
+    * eigen (EigenTrajectory)
+    * traj (Trajectron++)
+    * koopcast (KoopCast)

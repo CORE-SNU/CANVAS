@@ -198,7 +198,7 @@ def save_frame_png(outdir,
     if goal_xy is not None:
         ax.scatter([goal_xy[0]], [goal_xy[1]], marker='*', s=80)
     '''
-
+    
     # History(8)
     if valid_obs:
         for _, arr in valid_obs.items():
