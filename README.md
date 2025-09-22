@@ -7,10 +7,16 @@ from src.canvas import Environment, GridMPC, AdaptiveConformalPredictionModule, 
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
 
 # setup: dataset, predictor, simulation environment, controller, competency index
-obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')         
-ci_traj     = CompetencyIndex(case="traj",      r_star=rstar, return_type="series")
+prediction_len = 12
+history_len = 8
+dt = 0.10
+
+obj_predictor = Predictors(chosen_predictor="linear",prediction_len=prediction_len,history_len=history_len,dt=dt,dataset="ETH",device='cpu')         
+ci_traj     = CompetencyIndex(case="traj",r_star=0.5, return_type="series")
 t_begin=40 # time step to begin environment in dataset
 t_end= 300 # time step to end environment in dataset
+dt= 0.4
+init_robot_pose=np.array([0, 0, np.pi / 2.])
 environment = Environment(
             filepath=npy_path,
             dt=dt,
@@ -18,6 +24,12 @@ environment = Environment(
             t_begin=t_begin,
             t_end=t_end
         )
+cp_module = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
+                                                      step_size=0.05,
+                                                      n_scores=prediction_len,
+                                                      max_interval_lengths=max_interval_lengths,
+                                                      sample_size=20,
+                                                      offline_calibration_set=offline_calibration_set)
 cost_function = L2Euclidean(goal=env.goal, terminal_weight=10.)
 controller = MPPI(kinematic_model='differential_drive', cost_function=cost_function)
 index = CostCompetencyIndex(conformal_predictor=conformal_predictor, controller=controller)
