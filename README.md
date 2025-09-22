@@ -42,17 +42,17 @@ index.save_res('competency_example.npy')
 
 You can run the simulation with "simulation.py" with some variables
 
-* --goal_x, --goal_y : Goal position for control test
-* --num_iter : Number of iterations for simulation
-* --r_star : Threshold value $R^*$ of computating the Competency Index (CI)
-* --dataset : Select the dataset
+* --goal_x, --goal_y : Goal position for control test (default : (8.0, 0.2))
+* --num_iter : Number of iterations for simulation (default : 1)
+* --r_star : Threshold value $R^*$ of computating the Competency Index (CI) (default : 0.5)
+* --dataset : Select the dataset (default : Lobby)
     * ETH
     * Hotel
     * Univ
     * Zara01
     * Zara02
     * Lobby
-* --predictor : Select the predictor
+* --predictor : Select the predictor (default : linear)
     * linear (Linear predictor)
     * gp (GP predictor)
     * eigen (EigenTrajectory)
