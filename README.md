@@ -9,7 +9,13 @@ from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_
 # setup: dataset, predictor, simulation environment, controller, competency index
 obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')         
 ci_traj     = CompetencyIndex(case="traj",      r_star=rstar, return_type="series")
-env = SimulationEnv(dataset)
+environment = Environment(
+            filepath=npy_path,
+            dt=dt,
+            init_robot_pose=init_robot_pose,
+            t_begin=t_begin,
+            t_end=t_end
+        )
 cost_function = L2Euclidean(goal=env.goal, terminal_weight=10.)
 controller = MPPI(kinematic_model='differential_drive', cost_function=cost_function)
 index = CostCompetencyIndex(conformal_predictor=conformal_predictor, controller=controller)
