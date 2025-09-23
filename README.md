@@ -85,5 +85,5 @@ You can run the simulation with "simulation.py" with some variables
     * traj (Trajectron++)
     * koopcast (KoopCast)
 * --save_video : Save the result to video (default : False)
-* --video_fps : Configure FPS for saving video. Maybe better to fit with 'dt' (default : 10.0)
+* --video_fps : Configure FPS for saving video. It is recommended to fit with 'dt' (default : 10.0)
 
