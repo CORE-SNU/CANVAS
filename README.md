@@ -84,13 +84,6 @@ You can run the simulation with "simulation.py" with some variables
     * eigen (EigenTrajectory)
     * traj (Trajectron++)
     * koopcast (KoopCast)
-<<<<<<< HEAD
 * --save_video : Save the result to video (default : False)
 * --video_fps : Configure FPS for saving video. Maybe better to fit with 'dt' (default : 10.0)
-=======
-# need to edit file a bit
-Depending on the predictor used, additional variables must be passed for better comparison
-* --cfg: path to the config file relevant to running the predictor.( EigenTrajectory, default: Lobby config file)
-* --smoothing_factor: Smoothing factor to smooth the resulting prediction.( Linear Predictor. default: 0.75)
-* --model_dir: Model directory to call the PyTorch pt file (For Trajectron++ (dir), Eigen (model_path), or PyTorch (full model file).)
->>>>>>> f071c7ac2d714beeaf5f962f146dffbe1513e739
+
