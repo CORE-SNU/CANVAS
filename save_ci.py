@@ -8,6 +8,7 @@ from src.canvas import Box
 
 # --- Matplotlib (headless) ---
 import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Polygon, Rectangle
 from matplotlib.lines import Line2D

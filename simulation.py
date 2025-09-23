@@ -102,7 +102,7 @@ def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e
 # -----------------------------
 # Main
 # -----------------------------
-def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
+def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video):
     # Simulation rates
     dt = 0.10
 
@@ -229,6 +229,9 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
             t_end=t_end
         )
         position_x, position_y, orientation_z = environment.reset()
+
+        video_writer = None
+        video_path = iter_out_dir / f"sim_iter_{times+1:03d}.mp4"
 
         while not done:
             detect_time = time.time()
@@ -383,10 +386,9 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
             buffer_ci_ctrl_cost.append(ci_ctrlcost_val)
             it_ci_ctrl_cost.append(ci_ctrlcost_val)
 
-            
             # --------- Visualization (CI labels disabled by default) ---------
             try:
-                save_frame_png(
+                frame_png=save_frame_png(
                     outdir=iter_out_dir,
                     frame_idx=frame,
                     static_boxes=persistent_static_boxes,
@@ -402,6 +404,14 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
                     background_extent=bg_extent,
                     background_alpha=bg_alpha
                 )
+                if save_video:
+                    img = cv2.imread(frame_png)
+                    if img is not None:
+                        if video_writer is None:
+                            h, w = img.shape[:2]
+                            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                            video_writer = cv2.VideoWriter(str(video_path), fourcc, video_fps, (w, h))
+                        video_writer.write(img)
             except Exception as e:
                 print(f"[WARN] viz save failed at frame {frame}: {e}")
             
@@ -527,6 +537,10 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor):
             print("Avg_control_cost: ", np.sum(buffer_control) / len(buffer_control) if buffer_control else np.nan)
             print("Travel_time: ", travel_time)
 
+        if video_writer is not None:
+            video_writer.release()
+            print(f"[iter {times+1}] wrote video: {video_path}")
+
     # Optionally return aggregated stats
     return {
         'collision_rate': buffer_collision_rate,
@@ -553,8 +567,10 @@ if __name__ == "__main__":
     parser.add_argument('--r_star', type=float, default=0.5)
     parser.add_argument('--dataset', type=str, default="Lobby")
     parser.add_argument('--predictor', type=str, default="linear")
+    parser.add_argument('--save_video', type=bool, default=False)
+    parser.add_argument('--video_fps', type=float, default=10.0)
     args = parser.parse_args()
 
-    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor)
+    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video)
 
 
