@@ -2,7 +2,7 @@
   "H": 8,
   "P": 12,
   "device": "cpu",
-  "K_path": "/home/core/Documents/CANVAS/crowds_zara01_koopman_K_1.npy",
+  "K_path": "/raid/users/snowhan227/CANVAS/crowds_zara01_koopman_K_1.npy",
   "max_neighbors": 6,
   "neighbor_radius": 5.0,
   "neighbor_relative": true,
