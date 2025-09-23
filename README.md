@@ -53,10 +53,10 @@ for t in range(200):
                 confidence_intervals=confidence_intervals,
                 goal=goal
             )
-#update the below section a bit more
-    index.update({'obs': obs, 'pred': prediction_res, 'action': action}, step=t)
-    idx = index.compute_index()
-    obs = env.sim(action)
+            #update the below section a bit more
+            index.update({'obs': obs, 'pred': prediction_res, 'action': action}, step=t)
+            idx = index.compute_index()
+            obs = env.sim(action)
 
 # logging
 index.save_res('competency_example.npy')
