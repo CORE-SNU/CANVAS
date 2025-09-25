@@ -278,10 +278,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     fut = observation_future_true.get(pid, None) if isinstance(observation_future_true, dict) else None
                     if fut is None:
                         continue
-                    arr_fut = np.asarray(fut, dtype=np.float64)
-                    if not (arr_fut.ndim == 2 and arr_fut.shape[1] >= 2 and arr_fut.shape[0] >= prediction_len and np.isfinite(arr_fut[:prediction_len, :2]).all()):
-                        continue
-                    valid_obs_future_true[pid] = arr_fut[:prediction_len, :2]
+                    valid_obs_future_true[pid] = fut[:prediction_len, :2]
 
             # --------- Simple collision check (proximity to last history point) ---------
             dynamic_obs = {}
