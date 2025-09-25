@@ -28,10 +28,11 @@ class CompetencyIndex:
         # Get error from ScoreFunction (np.ndarray for series, float for scalars)
         err = self._sf(case=self.case, return_type=rt, **kwargs)
 
-        # Compute CI = (R* - err) / R*
-        return self._to_ci(err, rs)
+        # Compute CI
+        return self._to_ci_2(err, rs)
 
     # ---------------------------- helpers ----------------------------
+    # Compute CI = (R* - err) / R*
     def _to_ci(self, err, r_star):
         # Handle scalar vs array errors uniformly
         if np.isscalar(err):
@@ -47,8 +48,25 @@ class CompetencyIndex:
         if self.clip:
             ci = np.minimum(ci, 1.0)
         return ci
+    
+    # Compute CI = exp(- err / R*)
+    def _to_ci_2(self, err, r_star):
+        # Handle scalar vs array errors uniformly
+        if np.isscalar(err):
+            return self._ci_scalar_2(float(err), r_star)
+        # err is array-like
+        e = np.asarray(err, dtype=np.float64)
+        if e.size == 0:
+            return e  # empty series
+        rs = self._broadcast_rstar(r_star, e.shape)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ci = np.exp(-e/rs)
+        ci[~np.isfinite(ci)] = np.nan
+        if self.clip:
+            ci = np.minimum(ci, 1.0)
+        return ci
 
-    def _ci_scalar(self, err, r_star):
+    def _ci_scalar(self, err, r_star): # for _to_ci
         # r_star can be scalar or array-like; if array, use its first element
         if np.isscalar(r_star):
             rs = float(r_star)
@@ -58,6 +76,20 @@ class CompetencyIndex:
         if not np.isfinite(rs) or rs <= 0:
             return float("nan")
         ci = (rs - float(err)) / rs
+        if self.clip:
+            ci = min(ci, 1.0)
+        return float(ci)
+    
+    def _ci_scalar_2(self, err, r_star): # for _to_ci_2
+        # r_star can be scalar or array-like; if array, use its first element
+        if np.isscalar(r_star):
+            rs = float(r_star)
+        else:
+            rsa = np.asarray(r_star, dtype=np.float64).ravel()
+            rs = float(rsa[0]) if rsa.size else np.nan
+        if not np.isfinite(rs) or rs <= 0:
+            return float("nan")
+        ci = np.exp(- float(err)/rs)
         if self.clip:
             ci = min(ci, 1.0)
         return float(ci)
