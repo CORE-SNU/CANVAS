@@ -38,8 +38,8 @@ DATASET_TO_H_FILE = {
     "Univ": "univ.txt",
 }
 
-FRAMES_ROOT = "/home/core/Documents/ECP-MPC/assets/final/frames"
-HZIP_PATH = "/home/core/Documents/ECP-MPC/assets/homographies"
+FRAMES_ROOT = "/home/snowhan/ECP-MPC/assets/final/frames"
+HZIP_PATH = "/home/snowhan/ECP-MPC/assets/homographies"
 
 def find_frames_dir(asset_dir: str, dataset: str) -> str:
     #frames_root = os.path.join(asset_dir, "frames")

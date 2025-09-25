@@ -16,7 +16,7 @@ sys.path.append(_DATA_DIR)
 from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
 from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
-from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png_spectrum
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
 from math import radians, cos, sin
@@ -264,8 +264,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     if fut is None:
                         continue
                     arr_fut = np.asarray(fut, dtype=np.float64)
-                    if not (arr_fut.ndim == 2 and arr_fut.shape[1] >= 2 and arr_fut.shape[0] >= prediction_len and np.isfinite(arr_fut[:prediction_len, :2]).all()):
-                        continue
+                    if not (arr_hist.ndim == 2 and arr_hist.shape[0] == 8 and arr_hist.shape[1] >= 2 and np.isfinite(arr_hist[:, :2]).all()):
+                        continue # future is meant to be here if the arr_hist is here regardless of its own validity
                     valid_obs_future_true[pid] = arr_fut[:prediction_len, :2]
 
             # --------- Simple collision check (proximity to last history point) ---------
@@ -388,7 +388,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
 
             # --------- Visualization (CI labels disabled by default) ---------
             try:
-                frame_png=save_frame_png(
+                frame_png=save_frame_png_spectrum(
                     outdir=iter_out_dir,
                     frame_idx=frame,
                     static_boxes=persistent_static_boxes,
@@ -399,7 +399,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    annotate_ci=False,  # keep False here; enable later if needed
+                    annotate_ci=True,  # keep False here; enable later if needed
                     background_image=bg_img,
                     background_extent=bg_extent,
                     background_alpha=bg_alpha
@@ -565,8 +565,8 @@ if __name__ == "__main__":
     parser.add_argument('--goal_y', type=float, default=0.2)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
     parser.add_argument('--r_star', type=float, default=0.5)
-    parser.add_argument('--dataset', type=str, default="Lobby")
-    parser.add_argument('--predictor', type=str, default="linear")
+    parser.add_argument('--dataset', type=str, default="Zara01")
+    parser.add_argument('--predictor', type=str, default="traj")
     parser.add_argument('--save_video', type=bool, default=False)
     parser.add_argument('--video_fps', type=float, default=10.0)
     args = parser.parse_args()

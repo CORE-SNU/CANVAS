@@ -16,10 +16,11 @@ sys.path.append(_DATA_DIR)
 from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
 from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
-from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png,save_frame_png_spectrum,save_frame_png_spectrum_video
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
 from math import radians, cos, sin
+from sim_raw_overlay import RawVideoOverlay
 
 """
 Simulation pipeline (per frame):
@@ -102,9 +103,11 @@ def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e
 # -----------------------------
 # Main
 # -----------------------------
-def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video):
+def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video,
+         overlay, frame_offset, extracted_fps, output_fps):
     # Simulation rates
-    dt = 0.10
+    #dt = 0.10
+    dt = 1/2.5
 
     persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
 
@@ -231,7 +234,19 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         position_x, position_y, orientation_z = environment.reset()
 
         video_writer = None
-        video_path = iter_out_dir / f"sim_iter_{times+1:03d}.mp4"
+        video_path = iter_out_dir / f"sim_iter_{times+1:03d}_head.mp4"
+
+        overlay_result = None
+        if overlay:
+            out_mp4 = iter_out_dir / f"sim_iter_{times+1:03d}_raw_overlay.mp4"
+            overlay_result = RawVideoOverlay(
+                dataset=dataset,
+                out_video_path=str(out_mp4),
+                frame_offset=frame_offset,
+                sim_dt=dt,
+                extracted_fps=extracted_fps,
+                output_fps=output_fps
+            )
 
         while not done:
             detect_time = time.time()
@@ -388,7 +403,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
 
             # --------- Visualization (CI labels disabled by default) ---------
             try:
-                frame_png=save_frame_png(
+                bg_img = _load_background_image(overlay_result._frame_path_for_current(), spec.bg.rotate90)
+                frame_png=save_frame_png_spectrum_video(
                     outdir=iter_out_dir,
                     frame_idx=frame,
                     static_boxes=persistent_static_boxes,
@@ -399,7 +415,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    annotate_ci=False,  # keep False here; enable later if needed
+                    annotate_ci=True,  # keep False here; enable later if needed
                     background_image=bg_img,
                     background_extent=bg_extent,
                     background_alpha=bg_alpha
@@ -414,6 +430,9 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                         video_writer.write(img)
             except Exception as e:
                 print(f"[WARN] viz save failed at frame {frame}: {e}")
+
+            if overlay_result is not None:
+                overlay_result.step(valid_obs, valid_obs_future_true, prediction_res)
             
             # --------- Feasibility handling ---------
             buffer_infeasibility.append(info.get('feasible', True))
@@ -540,6 +559,9 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         if video_writer is not None:
             video_writer.release()
             print(f"[iter {times+1}] wrote video: {video_path}")
+        
+        if overlay_result is not None:
+            overlay_result.close()
 
     # Optionally return aggregated stats
     return {
@@ -558,19 +580,29 @@ if __name__ == "__main__":
     print("===================================")
     print("Enter the variables : --goal_x, --goal_y, --num_iter, --r_star, --dataset, --predictor")
     print("--dataset : ETH, Hotel, Univ, Zara01, Zara02, Lobby")
-    print("--predictor : linear, gp, eigen, traj, koopcast, SocialVAE, Social-STGCNN")
+    print("--predictor : linear, gp, eigen, traj, koopcast")
     print("===================================")
     parser = argparse.ArgumentParser()
     parser.add_argument('--goal_x', type=float, default=8.0)  # 8.0 , 6.0
     parser.add_argument('--goal_y', type=float, default=0.2)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
     parser.add_argument('--r_star', type=float, default=0.5)
-    parser.add_argument('--dataset', type=str, default="Lobby")
-    parser.add_argument('--predictor', type=str, default="linear")
-    parser.add_argument('--save_video', type=bool, default=False)
-    parser.add_argument('--video_fps', type=float, default=10.0)
+    parser.add_argument('--dataset', type=str, default="Zara01")
+    parser.add_argument('--predictor', type=str, default="traj")
+    parser.add_argument('--save_video', type=bool, default=True)
+    parser.add_argument('--video_fps', type=float, default=2.5)
+    #============================================================
+    parser.add_argument("--overlay", type=bool, default=True,
+                        help="Use homography to draw history/GT/prediction on extracted real frames")
+    parser.add_argument("--frame_offset", type=int, default=40,
+                        help="Align sim time to real frames (index shift)")
+    parser.add_argument("--extracted_fps", type=float, default=2.5,
+                        help="FPS used by video_parser.py to extract frames")
+    parser.add_argument("--output_fps", type=float, default=10.0,
+                        help="Output MP4 FPS; defaults to extracted_fps")
     args = parser.parse_args()
 
-    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video)
+    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,
+         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps)
 
 

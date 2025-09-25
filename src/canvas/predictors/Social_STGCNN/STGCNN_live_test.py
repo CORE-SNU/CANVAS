@@ -2,8 +2,12 @@ import math
 import numpy as np
 import torch
 import networkx as nx
-from model import social_stgcnn
+from .model import social_stgcnn
 from ..wrapper_predictor import BasePredictors
+import sys
+import os
+import pickle
+_DATA_DIR_STGCNN = os.path.dirname(__file__)
 # --- helpers ---------------------------------------------------------------
 
 def _anorm(p1, p2):
@@ -81,7 +85,7 @@ class STGCNN_Predictor(BasePredictors):
         dt: float = 0.1,
         device: str = "cpu",
         *,
-        model_dir: str = "./",
+        model_dir: str = "/checkpoint/social-stgcnn-eth",
     ):
         # Common interface fields: prediction_len, history_len, dt, device
         super().__init__(
@@ -90,8 +94,8 @@ class STGCNN_Predictor(BasePredictors):
             dt=dt,
             device=device,
         )
-        model_path = model_dir+'/val_best.pth'
-        args_path = model_dir+'/args.pkl'
+        model_path = _DATA_DIR_STGCNN+model_dir+'/val_best.pth'
+        args_path = _DATA_DIR_STGCNN+model_dir+'/args.pkl'
         with open(args_path,'rb') as f: 
             args = pickle.load(f)
         self.model = social_stgcnn(n_stgcnn =args.n_stgcnn,n_txpcnn=args.n_txpcnn,
@@ -106,17 +110,19 @@ class STGCNN_Predictor(BasePredictors):
         self.dtype=torch.float32
         self.model_dir = model_dir
     @torch.no_grad()
-    def predict_live_dict_det(
+    def __call__(
         self,
-        obs_dict,
+        tracking_results,
     ):
         """
         Deterministic Social-STGCNN rollout:
         {pid: (8,2)} -> {pid: (12,2)} using the predicted means (μx, μy).
         """
+        if not tracking_results:
+            return {}
         self.model.eval()
         V_obs, A_obs, pid_order, absseq = _dict8_to_graph(
-            obs_dict, obs_len=self.obs_len, norm_lap_matr=self.norm_lap_matr, device=self.device, dtype=self.dtype
+            tracking_results, obs_len=self.obs_len, norm_lap_matr=self.norm_lap_matr, device=self.device, dtype=self.dtype
         )
         # model expects (B, C=2, T_obs, N); A passed without batch (as in repo test)
         B = 1
