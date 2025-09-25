@@ -5,3 +5,4 @@ from .competency_indices import *
 from .detection import *
 from .controllers import *
 from .conformal_predictors import *
+from .utils import *

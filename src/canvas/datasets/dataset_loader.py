@@ -120,7 +120,7 @@ def get_dataset_spec(name: str) -> DatasetSpec:
         bg = BgSpec(path=HERE/"hotel.png", extent=(-3.25, 6.35, -10.31, 4.31), rotate90=True, alpha=0.6)
         return DatasetSpec(name=name, bg=bg, static_regions=[])
 
-    if name == "Zara01":
+    if name == "Zara01" or name in ("zara1", "zara01", "crowds_zara01", "zara_1"):
         bg = BgSpec(path=HERE/"crowds_zara01.jpg",
                     extent=(-0.02104651, 15.13244069, 0.76134018, 13.3864436), rotate90=False, alpha=0.6)
         return DatasetSpec(name=name, bg=bg, static_regions=[])
