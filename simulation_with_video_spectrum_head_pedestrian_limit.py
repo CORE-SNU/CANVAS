@@ -16,7 +16,7 @@ sys.path.append(_DATA_DIR)
 from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
 from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
-from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png,save_frame_png_spectrum,save_frame_png_spectrum_video
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
 from math import radians, cos, sin
@@ -234,7 +234,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         position_x, position_y, orientation_z = environment.reset()
 
         video_writer = None
-        video_path = iter_out_dir / f"sim_iter_{times+1:03d}.mp4"
+        video_path = iter_out_dir / f"sim_iter_{times+1:03d}_limit.mp4"
 
         overlay_result = None
         if overlay:
@@ -282,6 +282,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     if not (arr_fut.ndim == 2 and arr_fut.shape[1] >= 2 and arr_fut.shape[0] >= prediction_len and np.isfinite(arr_fut[:prediction_len, :2]).all()):
                         continue
                     valid_obs_future_true[pid] = arr_fut[:prediction_len, :2]
+                    if valid_obs.__sizeof__() >= 4:
+                        break  # limit max pedestrians to 50
 
             # --------- Simple collision check (proximity to last history point) ---------
             dynamic_obs = {}
@@ -403,7 +405,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
 
             # --------- Visualization (CI labels disabled by default) ---------
             try:
-                frame_png=save_frame_png(
+                bg_img = _load_background_image(overlay_result._frame_path_for_current(), spec.bg.rotate90)
+                frame_png=save_frame_png_spectrum_video(
                     outdir=iter_out_dir,
                     frame_idx=frame,
                     static_boxes=persistent_static_boxes,
@@ -414,7 +417,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    annotate_ci=False,  # keep False here; enable later if needed
+                    annotate_ci=True,  # keep False here; enable later if needed
                     background_image=bg_img,
                     background_extent=bg_extent,
                     background_alpha=bg_alpha
@@ -599,6 +602,8 @@ if __name__ == "__main__":
                         help="FPS used by video_parser.py to extract frames")
     parser.add_argument("--output_fps", type=float, default=10.0,
                         help="Output MP4 FPS; defaults to extracted_fps")
+    parser.add_argument("--max_ped", type=float, default=4.0,
+                        help="Max pedestrians to consider (others ignored)")
     args = parser.parse_args()
 
     main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,

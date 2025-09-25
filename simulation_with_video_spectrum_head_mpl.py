@@ -16,7 +16,7 @@ sys.path.append(_DATA_DIR)
 from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
 from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
-from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv,save_frame_painted_then_mpl
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
 from math import radians, cos, sin
@@ -234,7 +234,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         position_x, position_y, orientation_z = environment.reset()
 
         video_writer = None
-        video_path = iter_out_dir / f"sim_iter_{times+1:03d}.mp4"
+        video_path = iter_out_dir / f"sim_iter_{times+1:03d}_mpl.mp4"
 
         overlay_result = None
         if overlay:
@@ -403,7 +403,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
 
             # --------- Visualization (CI labels disabled by default) ---------
             try:
-                frame_png=save_frame_png(
+                bg_img = _load_background_image(overlay_result._frame_path_for_current(), spec.bg.rotate90)
+                frame_png=save_frame_painted_then_mpl(
                     outdir=iter_out_dir,
                     frame_idx=frame,
                     static_boxes=persistent_static_boxes,
@@ -414,10 +415,9 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    annotate_ci=False,  # keep False here; enable later if needed
+                    annotate_ci=True,  # keep False here; enable later if needed
                     background_image=bg_img,
-                    background_extent=bg_extent,
-                    background_alpha=bg_alpha
+                    homography_H=overlay_result.H,
                 )
                 if save_video:
                     img = cv2.imread(frame_png)

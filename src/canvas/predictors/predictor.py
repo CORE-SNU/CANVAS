@@ -158,7 +158,7 @@ class Predictors:
                 device=device,
                 #model_dir=model_dir,
             )
-        elif name in ("STGCNN","socialstgcnn","social_stgcnn","stgcnn"):
+        elif name in ("STGCNN","socialstgcnn","social_stgcnn","stgcnn","social-stgcnn"):
             from .Social_STGCNN.STGCNN_live_test import STGCNN_Predictor
             self.PredictorModel=STGCNN_Predictor(
                 prediction_len=prediction_len,

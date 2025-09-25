@@ -68,6 +68,35 @@ class Social_VAE_Predictor(BasePredictors):
         set_rng_state(self.rng_state, self.device)
         with torch.no_grad():
             x, pids = self.build_x(tracking_results, device=self.device, dt=self.dt, frameskip=frameskip)
-            out = self.model(x, None, n_predictions=0)  # expected (H, N, 2)
-            arr = out.detach().cpu().numpy() 
-            return {pid: arr[:, i, :] for i, pid in enumerate(pids)}
+            L, N, D = x.shape
+            out_dict = {}
+            for i, pid in enumerate(pids):
+                # (1) target agent stream: keep batch N=1
+                x_main = x[:, i:i+1, :] 
+                if N > 1:
+                    neigh = torch.cat([x[:, :i, :], x[:, i+1:, :]], dim=1)   # [L, N-1, 6]
+                    neigh = neigh.unsqueeze(1)                               # [L, 1, N-1, 6]
+                else:
+                    neigh = x.new_empty((L, 1, 0, D))                        # [L, 1, 0, 6] no neighbors
+                y = self.model(x, None, n_predictions=0)  # expected (H, N, 2)
+                if y.dim() == 2 and y.shape[1] == 2:
+                    traj = y  # (H,2)
+                elif y.dim() == 3 and y.shape[2] == 2:
+                    # (H,S,2) where S can be 1 or 1+Nn. By construction, ego is first.
+                    ego_idx = 0
+
+                    # Safety: if ordering ever changes, re-identify ego by proximity to last observed xy.
+                    try:
+                        last_xy = x_main[-1, 0, :2]                      # (2,)
+                        # distance between y[0, j] and last_xy
+                        dists = ((y[0, :, :] - last_xy).pow(2).sum(-1))  # (S,)
+                        ego_idx = int(dists.argmin().item())
+                    except Exception:
+                        pass  # keep default 0
+
+                    traj = y[:, ego_idx, :]  # (H,2)
+                else:
+                    raise RuntimeError(f"Unexpected output shape {tuple(y.shape)}; wanted (H,2) or (H,S,2).")
+
+                out_dict[pid] = traj.detach().cpu().numpy()
+            return out_dict

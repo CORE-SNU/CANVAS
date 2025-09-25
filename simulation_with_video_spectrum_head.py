@@ -580,7 +580,7 @@ if __name__ == "__main__":
     print("===================================")
     print("Enter the variables : --goal_x, --goal_y, --num_iter, --r_star, --dataset, --predictor")
     print("--dataset : ETH, Hotel, Univ, Zara01, Zara02, Lobby")
-    print("--predictor : linear, gp, eigen, traj, koopcast")
+    print("--predictor : linear, gp, eigen, traj, koopcast, SocialVAE, Social-STGCNN")
     print("===================================")
     parser = argparse.ArgumentParser()
     parser.add_argument('--goal_x', type=float, default=8.0)  # 8.0 , 6.0
@@ -588,7 +588,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_iter', type=int, default=1)
     parser.add_argument('--r_star', type=float, default=0.5)
     parser.add_argument('--dataset', type=str, default="Zara01")
-    parser.add_argument('--predictor', type=str, default="traj")
+    parser.add_argument('--predictor', type=str, default="SocialVAE")
     parser.add_argument('--save_video', type=bool, default=True)
     parser.add_argument('--video_fps', type=float, default=2.5)
     #============================================================
