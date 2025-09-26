@@ -1093,31 +1093,25 @@ def save_frame_painted_then_mpl(
     # Convert to RGB for Matplotlib if image is BGR
     shown = painted if not assume_bgr else cv2.cvtColor(painted, cv2.COLOR_BGR2RGB)
 
-    fig_dpi = 400
-    fig_w, fig_h = W_img / fig_dpi, H_img / fig_dpi
-    fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=fig_dpi)
-    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)  # keep canvas = image size
+    fig_dpi = 150
+    #fig_w, fig_h = W_img / fig_dpi, H_img / fig_dpi
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
+    #fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=fig_dpi)
     ax.imshow(shown)   # fill axes
-    ax.set_axis_off()
-
     # Colorbar (inset so image size stays the same)
-    if add_colorbar:
-        mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
-        mappable.set_array([])
-        cb_ax = inset_axes(ax, width="2.5%", height="60%", loc='upper right',
-                           bbox_to_anchor=(0, 0, 1, 1), bbox_transform=ax.transAxes, borderpad=0.02)
-        cb = plt.colorbar(mappable, cax=cb_ax)
-        cb.set_label(cbar_label, rotation=90, labelpad=8, va='center')
-        cb.ax.tick_params(pad=2)
 
     # Legend (proxy handles; prediction color shown as mid-CI swatch)
-    if add_legend:
-        mid_ci = 0.5*(norm.vmin + norm.vmax)
-        mid_rgb = cmap(norm(mid_ci))[:3]
-        hist = Line2D([0], [0], color=(0.0, 0.0, 0.5), lw=2, label='History (8)')
-        gt   = Line2D([0], [0], color=(0.0, 0.0, 0.0), lw=1, ls='--', label='GT future (12)')
-        pred = Line2D([0], [0], color=mid_rgb, lw=2, label='Prediction (CI-colored)')
-        leg = ax.legend(handles=[hist, gt, pred], loc='lower left', frameon=True, framealpha=0.85, fontsize=8)
+    mappable = mpl.cm.ScalarMappable(norm=norm, cmap=ci_cmap)
+    mappable.set_array([])  # needed for some Matplotlib versions
+    cb = plt.colorbar(mappable, ax=ax, pad=0.01)
+    cb.set_label('CI Prediction (12)', rotation=90, labelpad=12, va='center')
+
+    legend_elements = [
+        Line2D([0], [0], color='navy',  lw=1,   linestyle='-',  label='History (8)'),
+        Line2D([0], [0], color='black', lw=1,   linestyle='--', label='GT future (12)'),
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
+
 
     os.makedirs(outdir, exist_ok=True)
     out_path = os.path.join(outdir, f"frame_{frame_idx:06d}.png")
