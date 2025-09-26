@@ -555,7 +555,7 @@ if __name__ == "__main__":
     print("===================================")
     print("Enter the variables : --goal_x, --goal_y, --num_iter, --r_star, --dataset, --predictor")
     print("--dataset : ETH, Hotel, Univ, Zara01, Zara02, Lobby")
-    print("--predictor : linear, gp, eigen, traj, koopcast")
+    print("--predictor : linear, gp, eigen, traj, koopcast, SocialVAE, Social-STGCNN")
     print("===================================")
     parser = argparse.ArgumentParser()
     parser.add_argument('--goal_x', type=float, default=8.0)  # 8.0 , 6.0

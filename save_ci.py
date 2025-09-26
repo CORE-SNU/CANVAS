@@ -12,8 +12,27 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Polygon, Rectangle
 from matplotlib.lines import Line2D
+from matplotlib.collections import LineCollection
+import matplotlib as mpl
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import matplotlib.cm as cm
+import cv2
 
+def _fallback_to_image_frame(pos: np.ndarray, H: np.ndarray):
+    N = pos.shape[0]
+    pos_h = np.hstack([pos, np.ones((N, 1))])  # [x, y, 1]
+    img_h = np.linalg.solve(H, pos_h.T)  # H * img_h = world_h  => img_h = H^{-1} * world_h
+    x = img_h[0] / img_h[2]
+    y = img_h[1] / img_h[2]
+    return x, y
 
+try:
+    import sys
+    sys.path.append(os.path.dirname(__file__))
+    import visualization_utils as vis
+    to_image_frame = vis.to_image_frame
+except Exception:
+    to_image_frame = _fallback_to_image_frame
 # ============================================================
 # Save CI to .csv files per iteration 
 # ============================================================
@@ -206,7 +225,8 @@ def save_frame_png(outdir,
             a = np.asarray(arr, dtype=np.float64)
             if a.ndim == 2 and a.shape[1] >= 2:
                 a = a[:, :2]
-                ax.plot(a[:, 0], a[:, 1], color='navy', linewidth=1)
+                ax.plot(a[:, 0], a[:, 1], color='navy', linewidth=1)   # path
+                ax.plot(a[-1, 0], a[-1, 1], marker='o', markersize=6, linestyle='None')       
 
     # GT future(12)
     if valid_obs_future_true:
@@ -271,3 +291,831 @@ def save_frame_png(outdir,
     fig.savefig(path)
     plt.close(fig)
     return str(path)
+def save_frame_png_spectrum(outdir,
+                   frame_idx,
+                   static_boxes,
+                   robot_xy,
+                   robot_traj_xy,
+                   goal_xy,
+                   valid_obs=None,
+                   valid_obs_future_true=None,
+                   prediction_res=None,
+                   r_star=None,
+                   steps_to_annotate=(2, 5, 10),   # kept for compat (unused here)
+                   annotate_ci=False,              # if True, color prediction lines by CI
+                   # --- NEW: spectrum controls for the prediction line ---
+                   ci_cmap: str = 'plasma',
+                   ci_vmin: Optional[float] = -1.0,
+                   ci_vmax: Optional[float] = 1.0,
+                   ci_linewidth: float = 1.8,
+                   ci_alpha: float = 0.95,
+                   ci_colorbar: bool = True,
+                   # ------------------------------------------------------
+                   ci_decimals=2,                 # kept for compat (unused)
+                   ci_fontsize=7,                 # kept for compat (unused)
+                   max_ci_annotations_per_step=None,  # kept for compat (unused)
+                   xlim=(-2.5, 10.0),
+                   ylim=(-10.0, 2.0),
+                   background_image: Optional[np.ndarray] = None,  
+                   background_extent: Optional[Tuple[float, float, float, float]] = None,
+                   background_alpha: Optional[float] = None):
+
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
+
+    # Background
+    if background_image is not None and background_extent is not None:
+        alpha = 0.6 if background_alpha is None else background_alpha
+        xmin, xmax, ymin, ymax = background_extent
+        ax.imshow(background_image, extent=(xmin, xmax, ymin, ymax),
+                  alpha=alpha, aspect='auto')
+        ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
+        ax.set_aspect('equal'); ax.autoscale(False)
+        for artist in ax.get_children():
+            try: artist.set_clip_on(True)
+            except Exception: pass
+
+    # Static boxes (disabled as in your code)
+    if static_boxes:
+        for b in static_boxes:
+            if getattr(b, "vertices", None) is None: continue
+            poly = Polygon(b.vertices, closed=True,
+                           facecolor='gray', edgecolor='gray',
+                           linewidth=1, zorder=0.1)
+            # ax.add_patch(poly)
+
+    # Robot (kept commented in your code)
+    px, py = robot_traj_xy
+
+    # History (8)
+    if valid_obs:
+        for _, arr in valid_obs.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                a = a[:, :2]
+                ax.plot(a[:, 0], a[:, 1], color='navy', linewidth=1)
+                ax.plot(a[-1, 0], a[-1, 1], marker='o', markersize=6, linestyle='None')
+
+    # GT future (12)
+    if valid_obs_future_true:
+        for _, arr in valid_obs_future_true.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                a = a[:12, :2]
+                ax.plot(a[:, 0], a[:, 1], linestyle='--', color='black', linewidth=1)
+        # Decide normalization
+        norm = mpl.colors.Normalize(vmin=ci_vmin, vmax=ci_vmax, clip=True)
+
+        mappable_for_cb = None
+
+        for pid, arr in prediction_res.items():
+            pred = np.asarray(arr, dtype=np.float64)
+            if not (pred.ndim == 2 and pred.shape[1] >= 2): 
+                continue
+            p = pred[:12, :2]
+            if len(p) < 2 or not np.isfinite(p).all():
+                continue
+
+            # Build line segments
+            segs = np.stack([p[:-1], p[1:]], axis=1)  # (n-1, 2, 2)
+
+            if annotate_ci and (r_star is not None) and (r_star > 0) and valid_obs_future_true and (pid in valid_obs_future_true):
+                gt = np.asarray(valid_obs_future_true[pid], dtype=np.float64)[:len(p), :2]
+                L = min(len(p), len(gt))
+                if L >= 2:
+                    errs = np.linalg.norm(p[:L] - gt[:L], axis=1)
+                    cis = (r_star - errs) / r_star
+                    cvals = cis[1:L]  # one value per segment
+                    lc = LineCollection(segs[:L-1], cmap=ci_cmap, norm=norm, linewidths=ci_linewidth, alpha=ci_alpha)
+                    lc.set_array(cvals)
+                    ax.add_collection(lc)
+                    if mappable_for_cb is None:
+                        mappable_for_cb = lc
+                    continue  # done for this pid
+
+            # Fallback: plain line if CI not available
+            #ax.plot(p[:, 0], p[:, 1], linewidth=ci_linewidth, alpha=ci_alpha, color='red')
+
+        # Optional colorbar (only if we actually colored by CI)
+        if ci_colorbar and annotate_ci and (mappable_for_cb is not None):
+            cb = plt.colorbar(mappable_for_cb, ax=ax, pad=0.01)
+            cb.set_label('CI', rotation=0, labelpad=8)
+
+    legend_elements = [
+        Line2D([0], [0], color='navy',  lw=1,   linestyle='-',  label='History (8)'),
+        Line2D([0], [0], color='black', lw=1,   linestyle='--', label='GT future (12)'),
+        Line2D([0], [0], color='red',   lw=1.5, linestyle='-',  label='Prediction (12)'),
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
+
+    #ax.set_aspect('equal', adjustable='box')
+    #ax.set_xlim(*xlim); ax.set_ylim(*ylim)
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+
+    outdir = pathlib.Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    path = outdir / f"frame_{frame_idx:05d}.png"
+    fig.savefig(path)
+    plt.close(fig)
+    return str(path)
+def save_frame_png_spectrum_mod(outdir,
+                   frame_idx,
+                   static_boxes,
+                   robot_xy,
+                   robot_traj_xy,
+                   goal_xy,
+                   valid_obs=None,
+                   valid_obs_future_true=None,
+                   prediction_res=None,
+                   r_star=None,
+                   steps_to_annotate=(2, 5, 10),   # kept for compat (unused here)
+                   annotate_ci=False,              # if True, color prediction lines by CI
+                   # --- NEW: spectrum controls for the prediction line ---
+                   ci_cmap: str = 'plasma',
+                   ci_vmin: Optional[float] = -1.0,
+                   ci_vmax: Optional[float] = 1.0,
+                   ci_linewidth: float = 1.8,
+                   ci_alpha: float = 0.95,
+                   ci_colorbar: bool = True,
+                   # ------------------------------------------------------
+                   ci_decimals=2,                 # kept for compat (unused)
+                   ci_fontsize=7,                 # kept for compat (unused)
+                   max_ci_annotations_per_step=None,  # kept for compat (unused)
+                   xlim=(-2.5, 10.0),
+                   ylim=(-10.0, 2.0),
+                   background_image: Optional[np.ndarray] = None,  
+                   background_extent: Optional[Tuple[float, float, float, float]] = None,
+                   background_alpha: Optional[float] = None,
+                   ci_lw_min: float = 1.0,      # thinnest line
+                    ci_lw_max: float = 3.5,      # thickest line
+                    ci_lw_gamma: float = 1.0,    # nonlinearity; >1 emphasizes high CI, <1 emphasizes low CI
+                    ci_lw_invert: bool = False,  # if True, thicker = lower CI
+                    ):
+
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
+
+    # Background
+    if background_image is not None and background_extent is not None:
+        alpha = 0.6 if background_alpha is None else background_alpha
+        xmin, xmax, ymin, ymax = background_extent
+        ax.imshow(background_image, extent=(xmin, xmax, ymin, ymax),
+                  alpha=alpha, aspect='auto')
+        ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
+        ax.set_aspect('equal'); ax.autoscale(False)
+        for artist in ax.get_children():
+            try: artist.set_clip_on(True)
+            except Exception: pass
+
+    # Static boxes (disabled as in your code)
+    if static_boxes:
+        for b in static_boxes:
+            if getattr(b, "vertices", None) is None: continue
+            poly = Polygon(b.vertices, closed=True,
+                           facecolor='gray', edgecolor='gray',
+                           linewidth=1, zorder=0.1)
+            # ax.add_patch(poly)
+
+    # Robot (kept commented in your code)
+    px, py = robot_traj_xy
+
+    # History (8)
+    if valid_obs:
+        for _, arr in valid_obs.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                a = a[:, :2]
+                ax.plot(a[:, 0], a[:, 1], color='navy', linewidth=1)
+                ax.plot(a[-1, 0], a[-1, 1], marker='o', markersize=6, linestyle='None')
+
+    # GT future (12)
+    if valid_obs_future_true:
+        for _, arr in valid_obs_future_true.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                a = a[:12, :2]
+                ax.plot(a[:, 0], a[:, 1], linestyle='--', color='black', linewidth=1)
+        # Decide normalization
+        norm = mpl.colors.Normalize(vmin=ci_vmin, vmax=ci_vmax, clip=True)
+
+        mappable_for_cb = None
+
+        for pid, arr in prediction_res.items():
+            pred = np.asarray(arr, dtype=np.float64)
+            if not (pred.ndim == 2 and pred.shape[1] >= 2): 
+                continue
+            p = pred[:12, :2]
+            if len(p) < 2 or not np.isfinite(p).all():
+                continue
+
+            # Build line segments
+            segs = np.stack([p[:-1], p[1:]], axis=1)  # (n-1, 2, 2)
+
+            if annotate_ci and (r_star is not None) and (r_star > 0) and valid_obs_future_true and (pid in valid_obs_future_true):
+                gt = np.asarray(valid_obs_future_true[pid], dtype=np.float64)[:len(p), :2]
+                L = min(len(p), len(gt))
+                if L >= 2 and np.isfinite(gt[:L]).all():
+                    errs = np.linalg.norm(p[:L] - gt[:L], axis=1)
+                    cis  = (r_star - errs) / r_star
+
+                    # one value per segment (between step i and i+1)
+                    cvals = cis[1:L]                # shape (L-1,)
+                    segs_use = segs[:L-1]           # shape (L-1, 2, 2)
+
+                    # --- linewidths from CI ---
+                    # Use the same norm range as colors (if provided), otherwise derive from cvals
+                    if norm is not None:
+                        vmin, vmax = norm.vmin, norm.vmax
+                    else:
+                        vmin = np.nanmin(cvals); vmax = np.nanmax(cvals)
+                        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin == vmax:
+                            vmin, vmax = -1e-6, 1e-6  # avoid divide-by-zero; results in nearly uniform widths
+
+                    frac = (cvals - vmin) / (vmax - vmin)     # map to [0,1]
+                    frac = np.clip(frac, 0.0, 1.0)
+                    if ci_lw_invert:
+                        frac = 1.0 - frac
+                    if ci_lw_gamma != 1.0:
+                        frac = np.power(frac, ci_lw_gamma)
+
+                    lw = ci_lw_min + frac * (ci_lw_max - ci_lw_min)  # (L-1,) per-segment widths
+                    # --------------------------
+
+                    lc = LineCollection(
+                        segs_use,
+                        cmap=ci_cmap,
+                        norm=norm,
+                        linewidths=lw,      # <- variable linewidths here
+                        alpha=ci_alpha,
+                    )
+                    lc.set_array(cvals)     # colors still reflect CI
+                    ax.add_collection(lc)
+                    if mappable_for_cb is None:
+                        mappable_for_cb = lc
+
+            # Fallback: plain line if CI not available
+            ax.plot(p[:, 0], p[:, 1], linewidth=ci_linewidth, alpha=ci_alpha, color='red')
+
+        # Optional colorbar (only if we actually colored by CI)
+        if ci_colorbar and annotate_ci and (mappable_for_cb is not None):
+            cb = plt.colorbar(mappable_for_cb, ax=ax, pad=0.01)
+            cb.set_label('CI', rotation=0, labelpad=8)
+
+    legend_elements = [
+        Line2D([0], [0], color='navy',  lw=1,   linestyle='-',  label='History (8)'),
+        Line2D([0], [0], color='black', lw=1,   linestyle='--', label='GT future (12)'),
+        Line2D([0], [0], color='red',   lw=1.5, linestyle='-',  label='Prediction (12)'),
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
+
+    #ax.set_aspect('equal', adjustable='box')
+    #ax.set_xlim(*xlim); ax.set_ylim(*ylim)
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+
+    outdir = pathlib.Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    path = outdir / f"frame_mod_{frame_idx:05d}.png"
+    fig.savefig(path)
+    plt.close(fig)
+    return str(path)
+def save_frame_png_spectrum_video(outdir,
+                   frame_idx,
+                   static_boxes,
+                   robot_xy,
+                   robot_traj_xy,
+                   goal_xy,
+                   valid_obs=None,
+                   valid_obs_future_true=None,
+                   prediction_res=None,
+                   r_star=None,
+                   steps_to_annotate=(2, 5, 10),   # kept for compat (unused here)
+                   annotate_ci=False,              # if True, color prediction lines by CI
+                   # --- NEW: spectrum controls for the prediction line ---
+                   ci_cmap: str = 'plasma',
+                   ci_vmin: Optional[float] = -1.0,
+                   ci_vmax: Optional[float] = 1.0,
+                   ci_linewidth: float = 1.8,
+                   ci_alpha: float = 0.95,
+                   ci_colorbar: bool = True,
+                   # ------------------------------------------------------
+                   ci_decimals=2,                 # kept for compat (unused)
+                   ci_fontsize=7,                 # kept for compat (unused)
+                   max_ci_annotations_per_step=None,  # kept for compat (unused)
+                   xlim=(-2.5, 10.0),
+                   ylim=(-10.0, 2.0),
+                   background_image: Optional[np.ndarray] = None,  
+                   background_extent: Optional[Tuple[float, float, float, float]] = None,
+                   background_alpha: Optional[float] = None):
+
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
+    norm = mpl.colors.Normalize(vmin=ci_vmin, vmax=ci_vmax, clip=True)
+    # Background
+    if background_image is not None and background_extent is not None:
+        alpha = 0.6 if background_alpha is None else background_alpha
+        xmin, xmax, ymin, ymax = background_extent
+        ax.imshow(background_image, extent=(xmin, xmax, ymin, ymax),
+                  alpha=alpha, aspect='auto')
+        ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
+        ax.set_aspect('equal'); ax.autoscale(False)
+        for artist in ax.get_children():
+            try: artist.set_clip_on(True)
+            except Exception: pass
+
+    # Static boxes (disabled as in your code)
+    if static_boxes:
+        for b in static_boxes:
+            if getattr(b, "vertices", None) is None: continue
+            poly = Polygon(b.vertices, closed=True,
+                           facecolor='gray', edgecolor='gray',
+                           linewidth=1, zorder=0.1)
+            # ax.add_patch(poly)
+
+    # Robot (kept commented in your code)
+    px, py = robot_traj_xy
+
+    # History (8)
+    if valid_obs:
+        for _, arr in valid_obs.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                a = a[:, :2]
+                ax.plot(a[:, 0], a[:, 1], color='navy', linewidth=1)
+                ax.plot(a[-1, 0], a[-1, 1], marker='o', markersize=6, linestyle='None')
+    
+    # GT future (12)
+    if valid_obs_future_true:
+        for _, arr in valid_obs_future_true.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                a = a[:12, :2]
+                ax.plot(a[:, 0], a[:, 1], linestyle='--', color='black', linewidth=1)
+        # Decide normalization
+        
+
+
+        for pid, arr in prediction_res.items():
+            pred = np.asarray(arr, dtype=np.float64)
+            if not (pred.ndim == 2 and pred.shape[1] >= 2): 
+                continue
+            p = pred[:12, :2]
+            if len(p) < 2 or not np.isfinite(p).all():
+                continue
+
+            # Build line segments
+            segs = np.stack([p[:-1], p[1:]], axis=1)  # (n-1, 2, 2)
+
+            if annotate_ci and (r_star is not None) and (r_star > 0) and valid_obs_future_true and (pid in valid_obs_future_true):
+                gt = np.asarray(valid_obs_future_true[pid], dtype=np.float64)[:len(p), :2]
+                L = min(len(p), len(gt))
+                if L >= 2:
+                    errs = np.linalg.norm(p[:L] - gt[:L], axis=1)
+                    cis = (r_star - errs) / r_star
+                    cvals = cis[1:L]  # one value per segment
+                    lc = LineCollection(segs[:L-1], cmap=ci_cmap, norm=norm, linewidths=ci_linewidth, alpha=ci_alpha)
+                    lc.set_array(cvals)
+                    ax.add_collection(lc)
+                    continue  # done for this pid
+
+    mappable = mpl.cm.ScalarMappable(norm=norm, cmap=ci_cmap)
+    mappable.set_array([])  # needed for some Matplotlib versions
+    cb = plt.colorbar(mappable, ax=ax, pad=0.01)
+    cb.set_label('CI Prediction (12)', rotation=90, labelpad=12, va='center')
+
+    legend_elements = [
+        Line2D([0], [0], color='navy',  lw=1,   linestyle='-',  label='History (8)'),
+        Line2D([0], [0], color='black', lw=1,   linestyle='--', label='GT future (12)'),
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
+
+    #ax.set_aspect('equal', adjustable='box')
+    #ax.set_xlim(*xlim); ax.set_ylim(*ylim)
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+
+    outdir = pathlib.Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    path = outdir / f"frame_{frame_idx:05d}.png"
+    fig.savefig(path)
+    plt.close(fig)
+    return str(path)
+
+def save_frame_png_spectrum_video(outdir,
+                   frame_idx,
+                   static_boxes,
+                   robot_xy,
+                   robot_traj_xy,
+                   goal_xy,
+                   valid_obs=None,
+                   valid_obs_future_true=None,
+                   prediction_res=None,
+                   r_star=None,
+                   steps_to_annotate=(2, 5, 10),   # kept for compat (unused here)
+                   annotate_ci=False,              # if True, color prediction lines by CI
+                   # --- NEW: spectrum controls for the prediction line ---
+                   ci_cmap: str = 'plasma',
+                   ci_vmin: Optional[float] = -1.0,
+                   ci_vmax: Optional[float] = 1.0,
+                   ci_linewidth: float = 1.8,
+                   ci_alpha: float = 0.95,
+                   ci_colorbar: bool = True,
+                   # ------------------------------------------------------
+                   ci_decimals=2,                 # kept for compat (unused)
+                   ci_fontsize=7,                 # kept for compat (unused)
+                   max_ci_annotations_per_step=None,  # kept for compat (unused)
+                   xlim=(-2.5, 10.0),
+                   ylim=(-10.0, 2.0),
+                   background_image: Optional[np.ndarray] = None,  
+                   background_extent: Optional[Tuple[float, float, float, float]] = None,
+                   background_alpha: Optional[float] = None):
+
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
+    norm = mpl.colors.Normalize(vmin=ci_vmin, vmax=ci_vmax, clip=True)
+    # Background
+    if background_image is not None and background_extent is not None:
+        alpha = 0.6 if background_alpha is None else background_alpha
+        xmin, xmax, ymin, ymax = background_extent
+        ax.imshow(background_image, extent=(xmin, xmax, ymin-2, ymax),
+                  alpha=alpha, aspect='auto')
+        ax.set_xlim(xmin, xmax); ax.set_ylim(ymin-2, ymax)
+        ax.set_aspect('equal'); ax.autoscale(False)
+        for artist in ax.get_children():
+            try: artist.set_clip_on(True)
+            except Exception: pass
+
+    # Static boxes (disabled as in your code)
+    if static_boxes:
+        for b in static_boxes:
+            if getattr(b, "vertices", None) is None: continue
+            poly = Polygon(b.vertices, closed=True,
+                           facecolor='gray', edgecolor='gray',
+                           linewidth=1, zorder=0.1)
+            # ax.add_patch(poly)
+
+    # Robot (kept commented in your code)
+    px, py = robot_traj_xy
+
+    # History (8)
+    if valid_obs:
+        for _, arr in valid_obs.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                a = a[:, :2]
+                ax.plot(a[:, 0], a[:, 1], color='navy', linewidth=1)
+                ax.plot(a[-1, 0], a[-1, 1], marker='o', markersize=6, linestyle='None')
+    
+    # GT future (12)
+    if valid_obs_future_true:
+        for _, arr in valid_obs_future_true.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                a = a[:12, :2]
+                ax.plot(a[:, 0], a[:, 1], linestyle='--', color='black', linewidth=1)
+        # Decide normalization
+        
+
+
+        for pid, arr in prediction_res.items():
+            pred = np.asarray(arr, dtype=np.float64)
+            if not (pred.ndim == 2 and pred.shape[1] >= 2): 
+                continue
+            p = pred[:12, :2]
+            if len(p) < 2 or not np.isfinite(p).all():
+                continue
+
+            # Build line segments
+            segs = np.stack([p[:-1], p[1:]], axis=1)  # (n-1, 2, 2)
+
+            if annotate_ci and (r_star is not None) and (r_star > 0) and valid_obs_future_true and (pid in valid_obs_future_true):
+                gt = np.asarray(valid_obs_future_true[pid], dtype=np.float64)[:len(p), :2]
+                L = min(len(p), len(gt))
+                if L >= 2:
+                    errs = np.linalg.norm(p[:L] - gt[:L], axis=1)
+                    cis = (r_star - errs) / r_star
+                    cvals = cis[1:L]  # one value per segment
+                    lc = LineCollection(segs[:L-1], cmap=ci_cmap, norm=norm, linewidths=ci_linewidth, alpha=ci_alpha)
+                    lc.set_array(cvals)
+                    ax.add_collection(lc)
+                    continue  # done for this pid
+
+    mappable = mpl.cm.ScalarMappable(norm=norm, cmap=ci_cmap)
+    mappable.set_array([])  # needed for some Matplotlib versions
+    cb = plt.colorbar(mappable, ax=ax, pad=0.01)
+    cb.set_label('CI Prediction (12)', rotation=90, labelpad=12, va='center')
+
+    legend_elements = [
+        Line2D([0], [0], color='navy',  lw=1,   linestyle='-',  label='History (8)'),
+        Line2D([0], [0], color='black', lw=1,   linestyle='--', label='GT future (12)'),
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
+
+    #ax.set_aspect('equal', adjustable='box')
+    #ax.set_xlim(*xlim); ax.set_ylim(*ylim)
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+
+    outdir = pathlib.Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    path = outdir / f"frame_{frame_idx:05d}_head.png"
+    fig.savefig(path)
+    plt.close(fig)
+    return str(path)
+
+def save_frame_png_spectrum_robot(outdir,
+                   frame_idx,
+                   static_boxes,
+                   robot_xy,
+                   robot_traj_xy,
+                   goal_xy,
+                   valid_obs=None,
+                   valid_obs_future_true=None,
+                   prediction_res=None,
+                   r_star=None,
+                   steps_to_annotate=(2, 5, 10),   # kept for compat (unused here)
+                   annotate_ci=False,              # if True, color prediction lines by CI
+                   # --- NEW: spectrum controls for the prediction line ---
+                   ci_cmap: str = 'plasma',
+                   ci_vmin: Optional[float] = -1.0,
+                   ci_vmax: Optional[float] = 1.0,
+                   ci_linewidth: float = 1.8,
+                   ci_alpha: float = 0.95,
+                   ci_colorbar: bool = True,
+                   # ------------------------------------------------------
+                   ci_decimals=2,                 # kept for compat (unused)
+                   ci_fontsize=7,                 # kept for compat (unused)
+                   max_ci_annotations_per_step=None,  # kept for compat (unused)
+                   xlim=(-2.5, 10.0),
+                   ylim=(-10.0, 2.0),
+                   background_image: Optional[np.ndarray] = None,  
+                   background_extent: Optional[Tuple[float, float, float, float]] = None,
+                   background_alpha: Optional[float] = None):
+    px, py = robot_traj_xy
+ 
+
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
+    if len(px) and len(py):
+        ax.plot(px, py, linewidth=2)
+    ax.scatter([robot_xy[0]], [robot_xy[1]], marker='o', s=30)
+    if goal_xy is not None:
+        ax.scatter([goal_xy[0]], [goal_xy[1]], marker='*', s=80)
+    norm = mpl.colors.Normalize(vmin=ci_vmin, vmax=ci_vmax, clip=True)
+    # Background
+    if background_image is not None and background_extent is not None:
+        alpha = 0.6 if background_alpha is None else background_alpha
+        xmin, xmax, ymin, ymax = background_extent
+        ax.imshow(background_image, extent=(xmin, xmax, ymin-2, ymax),
+                  alpha=alpha, aspect='auto')
+        ax.set_xlim(xmin, xmax); ax.set_ylim(ymin-2, ymax)
+        ax.set_aspect('equal'); ax.autoscale(False)
+        for artist in ax.get_children():
+            try: artist.set_clip_on(True)
+            except Exception: pass
+
+    # Static boxes (disabled as in your code)
+    if static_boxes:
+        for b in static_boxes:
+            if getattr(b, "vertices", None) is None: continue
+            poly = Polygon(b.vertices, closed=True,
+                           facecolor='gray', edgecolor='gray',
+                           linewidth=1, zorder=0.1)
+            # ax.add_patch(poly)
+
+    # Robot (kept commented in your code)
+    px, py = robot_traj_xy
+
+    # History (8)
+    if valid_obs:
+        for _, arr in valid_obs.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                a = a[:, :2]
+                ax.plot(a[:, 0], a[:, 1], color='navy', linewidth=1)
+                ax.plot(a[-1, 0], a[-1, 1], marker='o', markersize=6, linestyle='None')
+    
+    # GT future (12)
+    if valid_obs_future_true:
+        for _, arr in valid_obs_future_true.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                a = a[:12, :2]
+                ax.plot(a[:, 0], a[:, 1], linestyle='--', color='black', linewidth=1)
+        # Decide normalization
+        
+
+
+        for pid, arr in prediction_res.items():
+            pred = np.asarray(arr, dtype=np.float64)
+            if not (pred.ndim == 2 and pred.shape[1] >= 2): 
+                continue
+            p = pred[:12, :2]
+            if len(p) < 2 or not np.isfinite(p).all():
+                continue
+
+            # Build line segments
+            segs = np.stack([p[:-1], p[1:]], axis=1)  # (n-1, 2, 2)
+
+            if annotate_ci and (r_star is not None) and (r_star > 0) and valid_obs_future_true and (pid in valid_obs_future_true):
+                gt = np.asarray(valid_obs_future_true[pid], dtype=np.float64)[:len(p), :2]
+                L = min(len(p), len(gt))
+                if L >= 2:
+                    errs = np.linalg.norm(p[:L] - gt[:L], axis=1)
+                    cis = (r_star - errs) / r_star
+                    cvals = cis[1:L]  # one value per segment
+                    lc = LineCollection(segs[:L-1], cmap=ci_cmap, norm=norm, linewidths=ci_linewidth, alpha=ci_alpha)
+                    lc.set_array(cvals)
+                    ax.add_collection(lc)
+                    continue  # done for this pid
+
+    mappable = mpl.cm.ScalarMappable(norm=norm, cmap=ci_cmap)
+    mappable.set_array([])  # needed for some Matplotlib versions
+    cb = plt.colorbar(mappable, ax=ax, pad=0.01)
+    cb.set_label('CI Prediction (12)', rotation=90, labelpad=12, va='center')
+
+    legend_elements = [
+        Line2D([0], [0], color='navy',  lw=1,   linestyle='-',  label='History (8)'),
+        Line2D([0], [0], color='black', lw=1,   linestyle='--', label='GT future (12)'),
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
+
+    #ax.set_aspect('equal', adjustable='box')
+    #ax.set_xlim(*xlim); ax.set_ylim(*ylim)
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+
+    outdir = pathlib.Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    path = outdir / f"frame_{frame_idx:05d}_robot.png"
+    fig.savefig(path)
+    plt.close(fig)
+    return str(path)
+def save_frame_painted_then_mpl(
+    outdir: str,
+    frame_idx: int,
+    static_boxes: Optional[list]=None,
+    robot_xy: Optional[Tuple[float, float]]=None,
+    robot_traj_xy: Optional[Tuple[list[float], list[float]]]=None,
+    goal_xy: Optional[Tuple[float, float]]=None,
+    
+    # data
+    valid_obs: Optional[Dict]=None,
+    valid_obs_future_true: Optional[Dict]=None,
+    prediction_res: Optional[Dict]=None,
+    # homography
+    homography_H: Optional[np.ndarray]=None,                # 3x3
+    # CI controls
+    annotate_ci: bool=True,
+    r_star: Optional[float]=None,
+    ci_cmap: str='plasma',
+    ci_vmin: float=-1.0,
+    ci_vmax: float= 1.0,
+    ci_thick_min: int=2,
+    ci_thick_max: int=5,
+    # draw options
+    pred_steps: Optional[int]=None,
+    paint_alpha: float=1.0,  # <1.0 = blended overlay
+    # background
+    background_image: np.ndarray=None,  # BGR or RGB; uint8 preferred
+    assume_bgr: bool=True,              # True if your bg/painting path uses cv2 BGR
+    # legend/colorbar
+    add_legend: bool=True,
+    add_colorbar: bool=True,
+    cbar_label: str='CI Prediction (12)',
+) -> str:
+    """Paint trajectories onto the image (cv2), then add legend + colorbar in Matplotlib."""
+    assert background_image is not None, "background_image is required."
+
+    img = background_image.copy()
+    if img.dtype != np.uint8:
+        img = np.clip(img, 0, 255).astype(np.uint8)
+    if img.ndim == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    elif img.shape[2] == 4:
+        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+
+    H_img, W_img = img.shape[:2]
+    overlay = img.copy()
+
+    # --- homography helper ---
+    def apply_h(world_pts: np.ndarray) -> np.ndarray:
+        if world_pts is None or len(world_pts) == 0:
+            return None
+        mask = np.isfinite(world_pts).all(axis=1)
+        if not np.any(mask):
+            return None
+        wp = world_pts[mask]
+        xs, ys = to_image_frame(wp, homography_H)
+        return np.stack([xs, ys], axis=1)
+
+    # --- color mapping (fixed range) ---
+    norm = mpl.colors.Normalize(vmin=float(ci_vmin), vmax=float(ci_vmax), clip=True)
+    cmap = cm.get_cmap(ci_cmap)
+
+    def color_from_ci(ci_val: float):
+        r, g, b, _ = cmap(norm(ci_val))
+        # cv2 uses BGR
+        return (int(255*b), int(255*g), int(255*r))
+
+    def thickness_from_ci(ci_val: float) -> int:
+        frac = (ci_val - norm.vmin) / (norm.vmax - norm.vmin + 1e-12)
+        frac = float(np.clip(frac, 0.0, 1.0))
+        return int(round(ci_thick_min + frac * (ci_thick_max - ci_thick_min)))
+
+    # --- draw utilities ---
+    def draw_polyline(uv: np.ndarray, color, thick=2):
+        pts = np.round(uv).astype(int)
+        for i in range(len(pts)-1):
+            cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), color, thick, lineType=cv2.LINE_AA)
+
+    # --- HISTORY (navy-ish) ---
+    if valid_obs:
+        navy = (128, 0, 0)  # BGR-ish dark blue
+        for _, arr in valid_obs.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                uv = apply_h(a[:, :2])
+                if uv is None or len(uv) < 2 or not np.isfinite(uv).all():
+                    continue
+                draw_polyline(uv, navy, thick=2)
+                c = tuple(np.round(uv[-1]).astype(int))
+                cv2.circle(overlay, c, radius=3, color=navy, thickness=-1, lineType=cv2.LINE_AA)
+
+    # --- GT FUTURE (black dashed-ish) ---
+    if valid_obs_future_true:
+        black = (0, 0, 0)
+        for _, arr in valid_obs_future_true.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                uv = apply_h(a[:12, :2])
+                if uv is None or len(uv) < 2 or not np.isfinite(uv).all():
+                    continue
+                pts = np.round(uv).astype(int)
+                for i in range(len(pts)-1):
+                    if i % 2 == 0:
+                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), black, 1, cv2.LINE_AA)
+
+    # --- PREDICTION (CI-colored) ---
+    if prediction_res:
+        for pid, arr in prediction_res.items():
+            p_world = np.asarray(arr, dtype=np.float64)
+            if not (p_world.ndim == 2 and p_world.shape[1] >= 2):
+                continue
+            n_keep = pred_steps if (pred_steps is not None) else 12
+            p_world = p_world[:n_keep, :2]
+            if len(p_world) < 2 or not np.isfinite(p_world).all():
+                continue
+
+            p_uv = apply_h(p_world)
+            if p_uv is None or not np.isfinite(p_uv).all():
+                continue
+            pts = np.round(p_uv).astype(int)
+
+            if annotate_ci and (r_star is not None) and (r_star > 0) and valid_obs_future_true and (pid in valid_obs_future_true):
+                gt_world = np.asarray(valid_obs_future_true[pid], dtype=np.float64)[:len(p_world), :2]
+                if len(gt_world) >= 2 and np.isfinite(gt_world).all():
+                    errs = np.linalg.norm(p_world[:len(gt_world)] - gt_world, axis=1)
+                    cis  = (r_star - errs) / r_star
+                    cvals = cis[1:]
+                    for i in range(len(pts)-1):
+                        ci_val = cvals[i] if i < len(cvals) else cvals[-1]
+                        color  = color_from_ci(float(ci_val))
+                        thick  = thickness_from_ci(float(ci_val))
+                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), color, thick, cv2.LINE_AA)
+                    continue
+
+            # fallback: plain red
+            red = (0, 0, 255)
+            for i in range(len(pts)-1):
+                cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), red, ci_thick_min, cv2.LINE_AA)
+
+    # --- blend overlay to base image ---
+    painted = overlay if paint_alpha >= 1.0 else cv2.addWeighted(overlay, paint_alpha, img, 1.0 - paint_alpha, 0.0)
+
+    # ---------- MATPLOTLIB: add legend + colorbar on top of painted image ----------
+    # Convert to RGB for Matplotlib if image is BGR
+    shown = painted if not assume_bgr else cv2.cvtColor(painted, cv2.COLOR_BGR2RGB)
+
+    fig_dpi = 150
+    #fig_w, fig_h = W_img / fig_dpi, H_img / fig_dpi
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
+    #fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=fig_dpi)
+    ax.imshow(shown)   # fill axes
+    # Colorbar (inset so image size stays the same)
+
+    # Legend (proxy handles; prediction color shown as mid-CI swatch)
+    mappable = mpl.cm.ScalarMappable(norm=norm, cmap=ci_cmap)
+    mappable.set_array([])  # needed for some Matplotlib versions
+    cb = plt.colorbar(mappable, ax=ax, pad=0.01)
+    cb.set_label('CI Prediction (12)', rotation=90, labelpad=12, va='center')
+
+    legend_elements = [
+        Line2D([0], [0], color='navy',  lw=1,   linestyle='-',  label='History (8)'),
+        Line2D([0], [0], color='black', lw=1,   linestyle='--', label='GT future (12)'),
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
+
+
+    os.makedirs(outdir, exist_ok=True)
+    out_path = os.path.join(outdir, f"frame_{frame_idx:06d}.png")
+    # IMPORTANT: don’t use bbox_inches="tight" or extra padding; we want 1:1 with the image
+    fig.savefig(out_path, dpi=fig.dpi, bbox_inches=None, pad_inches=0)
+    plt.close(fig)
+    return out_path

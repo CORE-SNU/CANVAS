@@ -20,7 +20,7 @@ class Predictors:
 
         Args:
             chosen_predictor: One of {"linear","lin","trajectron","traj","tpp",
-                "eigen","eigentrajectory","eigen_traj","pytorch","torch"}.
+                "eigen","eigentrajectory","eigen_traj","pytorch","torch", "stgcnn","socialvae"}.
             prediction_len: Number of future steps to predict.
             history_len: Number of observed steps provided to the model.
             dt: Timestep used by some predictors.
@@ -149,13 +149,31 @@ class Predictors:
                 mdn_pt_path=mdn_pt,
                 device=device,
             )
+        elif name in ("SocialVAE","socialvae","social_vae"):
+            from .SocialVAE.social_vae_runner import Social_VAE_Predictor
+            self.PredictorModel=Social_VAE_Predictor(
+                prediction_len=prediction_len,
+                history_len=history_len,
+                dt=dt,
+                device=device,
+                #model_dir=model_dir,
+            )
+        elif name in ("STGCNN","socialstgcnn","social_stgcnn","stgcnn","social-stgcnn"):
+            from .Social_STGCNN.STGCNN_live_test import STGCNN_Predictor
+            self.PredictorModel=STGCNN_Predictor(
+                prediction_len=prediction_len,
+                history_len=history_len,
+                dt=dt,
+                device=device,
+                #model_dir=model_dir,
+            )
         elif name in ("pytorch", "torch"):
             self.PredictorModel=torch.load(model_dir,map_location=device)
             self.PredictorModel.eval()
         else:
             raise ValueError(
                 f"Unknown predictor '{chosen_predictor}'. "
-                "Expected one of: Linear, Trajectron, Eigen."
+                "Expected one of: Linear, Trajectron, EigenTrajectory, GaussianProcess, Koopcast, SocialVAE, Social-STGCNN, PyTorch."
             )
     def __call__(self,dynamic_obs):
         """Run the selected predictor.

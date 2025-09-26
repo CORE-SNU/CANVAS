@@ -583,9 +583,9 @@ if __name__ == "__main__":
     parser.add_argument('--goal_y', type=float, default=0.2)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
     parser.add_argument('--r_star', type=float, default=0.5)
-    parser.add_argument('--dataset', type=str, default="Lobby")
-    parser.add_argument('--predictor', type=str, default="linear")
-    parser.add_argument('--save_video', type=bool, default=False)
+    parser.add_argument('--dataset', type=str, default="Zara01")
+    parser.add_argument('--predictor', type=str, default="traj")
+    parser.add_argument('--save_video', type=bool, default=True)
     parser.add_argument('--video_fps', type=float, default=2.5)
     #============================================================
     parser.add_argument("--overlay", type=bool, default=True,
