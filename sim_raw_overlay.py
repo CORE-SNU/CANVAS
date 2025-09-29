@@ -5,7 +5,7 @@ import glob
 import zipfile
 import numpy as np
 from typing import Dict, Tuple, List, Optional
-
+_DATA_DIR = os.path.dirname(__file__)
 def _fallback_to_image_frame(pos: np.ndarray, H: np.ndarray):
     N = pos.shape[0]
     pos_h = np.hstack([pos, np.ones((N, 1))])  # [x, y, 1]
@@ -38,8 +38,8 @@ DATASET_TO_H_FILE = {
     "Univ": "univ.txt",
 }
 
-FRAMES_ROOT = "/home/snowhan/ECP-MPC/assets/final/frames"
-HZIP_PATH = "/home/snowhan/ECP-MPC/assets/homographies"
+FRAMES_ROOT = _DATA_DIR+"/src/canvas/assets/final/frames"
+HZIP_PATH = _DATA_DIR+"/src/canvas/assets/homographies"
 
 def find_frames_dir(asset_dir: str, dataset: str) -> str:
     #frames_root = os.path.join(asset_dir, "frames")

@@ -11,11 +11,11 @@ import csv
 
 import sys
 _DATA_DIR = os.path.dirname(__file__)
-
 sys.path.append(_DATA_DIR)
 from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
 from src.canvas import Environment, Box, GridMPC, \
-    AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
+    AdaptiveConformalPredictionModule, Predictors,\
+        CompetencyIndex, Predictor_CI, region_to_box,dynamic_observation_filter
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv,save_frame_painted_then_mpl
 from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
@@ -70,41 +70,12 @@ for region in regions:
     )
     persistent_static_boxes.append(box)
 '''
-def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e-3) -> Box:
-    xmin, xmax = region["xmin"], region["xmax"]
-    ymin, ymax = region["ymin"], region["ymax"]
-    x_center = (xmin + xmax) / 2.0
-    y_center = (ymin + ymax) / 2.0
-    w = xmax - xmin
-    h = ymax - ymin
-    deg = float(region.get("deg", default_deg))
-    rad = radians(deg)
-    
-    corners = np.array([
-        [-w/2, -h/2],
-        [ w/2, -h/2],
-        [ w/2,  h/2],
-        [-w/2,  h/2],
-    ], dtype=float)
-    
-    c, s = cos(rad), sin(rad)
-    R = np.array([[c, -s],
-                  [s,  c]], dtype=float)
-    rot_corners = (corners @ R.T) + np.array([x_center, y_center])
-    return Box(
-        x=x_center, y=y_center, w=w, h=h,
-        deg=deg, rad=rad, area=w*h,
-        vertices=rot_corners,
-        resolution=resolution,
-        pos=np.array([x_center, y_center], dtype=float)
-    )
-
 
 # -----------------------------
 # Main
 # -----------------------------
 def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video,
-         overlay, frame_offset, extracted_fps, output_fps):
+         overlay, frame_offset, extracted_fps, output_fps,max_ped):
     # Simulation rates
     #dt = 0.10
     dt = 1/2.5
@@ -263,46 +234,18 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
             # Filter valid histories and GT futures (finite & correct shape)
             valid_obs = {}
             valid_obs_future_true = {}
-            if isinstance(observation, dict):
-                for pid, traj in observation.items():
-                    # history
-                    try:
-                        arr_hist = np.asarray(traj, dtype=np.float64)
-                    except (TypeError, ValueError):
-                        continue
-                    if not (arr_hist.ndim == 2 and arr_hist.shape[0] == 8 and arr_hist.shape[1] >= 2 and np.isfinite(arr_hist[:, :2]).all()):
-                        continue
-                    valid_obs[pid] = arr_hist
 
-                    # GT future (kept for viz & later scoring; not used by controller here)
-                    fut = observation_future_true.get(pid, None) if isinstance(observation_future_true, dict) else None
-                    if fut is None:
-                        continue
-                    arr_fut = np.asarray(fut, dtype=np.float64)
-                    if not (arr_fut.ndim == 2 and arr_fut.shape[1] >= 2 and arr_fut.shape[0] >= prediction_len and np.isfinite(arr_fut[:prediction_len, :2]).all()):
-                        continue
-                    valid_obs_future_true[pid] = arr_fut[:prediction_len, :2]
-
-            # --------- Simple collision check (proximity to last history point) ---------
-            dynamic_obs = {}
-            if valid_obs:
-                dynamic_obs = valid_obs
-                initial_positions = np.array([traj[-1, :2] for traj in dynamic_obs.values()])
-                robot_pos = np.array([position_x, position_y])
-                distances = np.sqrt(np.sum((initial_positions - robot_pos) ** 2, axis=1))
-                if np.any(distances <= 0.7):
-                    print("Collision!")
-                    collision_count += int(np.sum(distances <= 0.7))
-
+            valid_obs,valid_obs_future_true=dynamic_observation_filter(observation, position_x, position_y, prediction_len,observation_future_true,max_ped)
+        
             # --------- Predictor (once per frame) ---------
             pred_start = time.time()
-            prediction_res = obj_predictor(dynamic_obs if dynamic_obs else {})
+            prediction_res = obj_predictor(valid_obs if valid_obs else {})
             pred_time = time.time() - pred_start
             buffer_prediction_times.append(pred_time)
 
             # --------- CP update (once per frame) ---------
-            confidence_intervals = cp_module.update(dynamic_obs, prediction_res if isinstance(prediction_res, dict) else {})
-            confidence_intervals_gt=cp_module_gt.update(dynamic_obs, valid_obs_future_true if isinstance(valid_obs_future_true, dict) else {})
+            confidence_intervals = cp_module.update(valid_obs, prediction_res if isinstance(prediction_res, dict) else {})
+            confidence_intervals_gt=cp_module_gt.update(valid_obs, valid_obs_future_true if isinstance(valid_obs_future_true, dict) else {})
 
             # --------- Controller (once per frame, with predictions) ---------
             velocity, info, minimum, intermediate, terminal, control, minimal = controller(
@@ -599,9 +542,11 @@ if __name__ == "__main__":
                         help="FPS used by video_parser.py to extract frames")
     parser.add_argument("--output_fps", type=float, default=10.0,
                         help="Output MP4 FPS; defaults to extracted_fps")
+    parser.add_argument("--max_ped", type=float, default=4.0,
+                    help="Max pedestrians to consider (others ignored)")
     args = parser.parse_args()
 
     main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,
-         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps)
+         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps, max_ped=args.max_ped)
 
 

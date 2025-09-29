@@ -1,5 +1,6 @@
 import numpy as np
 from ..detection.detection_utils import Box
+from math import radians, cos, sin
 def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e-3) -> Box:
     xmin, xmax = region["xmin"], region["xmax"]
     ymin, ymax = region["ymin"], region["ymax"]
