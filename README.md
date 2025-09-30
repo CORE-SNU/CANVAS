@@ -90,7 +90,7 @@ You can run the simulation with "simulation.py" with some dedicated variables
 * --video_fps : Configure FPS for saving video. It is recommended to fit with 'dt' (default : 10.0)
 
 ## To-do-list
-[ ] MPPI implementation
-[ ] ECP-MPC migration
-[ ] visualization
-[ ] benchmark tests
+- [ ] MPPI implementation
+- [ ] ECP-MPC migration
+- [ ] visualization
+- [ ] benchmark tests
