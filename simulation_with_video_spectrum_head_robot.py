@@ -104,7 +104,7 @@ def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e
 # Main
 # -----------------------------
 def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video,
-         overlay, frame_offset, extracted_fps, output_fps):
+         overlay, frame_offset, extracted_fps, output_fps,max_ped):
     # Simulation rates
     #dt = 0.10
     dt = 1/2.5
@@ -279,9 +279,11 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     if fut is None:
                         continue
                     arr_fut = np.asarray(fut, dtype=np.float64)
-                    if not (arr_fut.ndim == 2 and arr_fut.shape[1] >= 2 and arr_fut.shape[0] >= prediction_len and np.isfinite(arr_fut[:prediction_len, :2]).all()):
+                    if not (arr_hist.ndim == 2 and arr_hist.shape[0] == 8 and arr_hist.shape[1] >= 2 and np.isfinite(arr_hist[:, :2]).all()):
                         continue
                     valid_obs_future_true[pid] = arr_fut[:prediction_len, :2]
+                    if valid_obs.__sizeof__() >= max_ped:
+                        break  # limit max pedestrians to max_ped
 
             # --------- Simple collision check (proximity to last history point) ---------
             dynamic_obs = {}
@@ -618,9 +620,11 @@ if __name__ == "__main__":
                         help="FPS used by video_parser.py to extract frames")
     parser.add_argument("--output_fps", type=float, default=10.0,
                         help="Output MP4 FPS; defaults to extracted_fps")
+    parser.add_argument("--max_ped", type=float, default=4.0,
+                    help="Max pedestrians to consider (others ignored)")
     args = parser.parse_args()
 
     main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,
-         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps)
+         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps,max_ped=args.max_ped)
 
 

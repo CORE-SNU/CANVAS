@@ -1,6 +1,6 @@
 # code to simplify the dynamic observation detection process
 import numpy as np
-def dynamic_observation_filter(observation, position_x, position_y, prediction_len,observation_future_true=None):
+def dynamic_observation_filter(observation, position_x, position_y, prediction_len,observation_future_true=None,max_ped=40):
     valid_obs = {}
     valid_obs_future_true = {}
     if isinstance(observation, dict):
@@ -19,10 +19,12 @@ def dynamic_observation_filter(observation, position_x, position_y, prediction_l
             if fut is None:
                 continue
             arr_fut = np.asarray(fut, dtype=np.float64)
-            if not (arr_fut.ndim == 2 and arr_fut.shape[1] >= 2 and arr_fut.shape[0] >= prediction_len and np.isfinite(arr_fut[:prediction_len, :2]).all()):
+            if not (arr_hist.ndim == 2 and arr_hist.shape[0] == 8 and arr_hist.shape[1] >= 2 and np.isfinite(arr_hist[:, :2]).all()):
                 continue
             valid_obs_future_true[pid] = arr_fut[:prediction_len, :2]
-
+            if len(valid_obs)   >= max_ped:
+                print("Max pedestrians reached, skipping remaining...")
+                break  # limit max pedestrians to max_ped
     # --------- Simple collision check (proximity to last history point) ---------
     dynamic_obs = {}
     if valid_obs:
@@ -33,7 +35,7 @@ def dynamic_observation_filter(observation, position_x, position_y, prediction_l
         if np.any(distances <= 0.7):
             print("Collision!")
             collision_count += int(np.sum(distances <= 0.7))
-    if valid_obs_future_true:
+    if isinstance(observation_future_true,dict):
         return dynamic_obs, valid_obs_future_true
     else:
         return dynamic_obs
