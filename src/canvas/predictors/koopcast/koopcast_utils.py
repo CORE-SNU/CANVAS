@@ -74,17 +74,12 @@ class MDN(nn.Module):
 # ---------------------- psi builders + rollout ----------------------
 
 def build_psi_from_hist_g(hist: np.ndarray, g: np.ndarray, use_bias: bool=True) -> np.ndarray:
-     """
-     Lift (history, goal) -> (history, history^2, goal [, 1])
-       hist: (H,2) in time order; we reverse to latest-first before flatten.
-     """
-     H = hist.shape[0]
-     h = hist[::-1].reshape(2 * H)          # [x_t, y_t, x_{t-1}, y_{t-1}, ...]
-     h2 = (hist[::-1] ** 2).reshape(2 * H)  # elementwise square
-     psi = np.concatenate([h, h2, g], axis=0)
-     if use_bias:
-         psi = np.concatenate([psi, [1.0]], axis=0)
-     return psi
+    H = hist.shape[0]
+    hvec = hist[::-1].reshape(2*H)
+    psi = np.concatenate([hvec, g], axis=0)
+    if use_bias:
+        psi = np.concatenate([psi, [1.0]], axis=0)
+    return psi
 
 def rollout_with_K(hist: np.ndarray, g: np.ndarray, K: np.ndarray, P: int, use_bias: bool=True) -> np.ndarray:
     psi = build_psi_from_hist_g(hist, g, use_bias)

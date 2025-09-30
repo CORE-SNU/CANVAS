@@ -47,6 +47,7 @@ NEIGHBOR_RADIUS_DEFAULT = 5.0   # meters
 NEIGHBOR_RELATIVE_DEFAULT = True  # frame-wise relative coordinates
 
 # ---------------------- Utility ----------------------
+
 def valid_windows(traj: np.ndarray, H: int, P: int):
     T = traj.shape[0]
     mask = np.all(np.isfinite(traj), axis=1)
@@ -136,8 +137,7 @@ def collect_mdn_dataset_multiagent(
 
 def collect_koopman_pairs(train_files: List[str], H: int, P: int, use_bias: bool=True):
     H2 = 2 * H
-    D = (4 * H) + 2 + (1 if use_bias else 0) # (history, history^2, goal [, 1]) -> 2H + 2H + 2 (+1)
-    #D  = H2 + 2 + (1 if use_bias else 0)
+    D  = H2 + 2 + (1 if use_bias else 0)
     P_cols, F_cols = [], []
     for fpath in train_files:
         data = np.load(fpath)  # (T, N, 2)
@@ -152,8 +152,13 @@ def collect_koopman_pairs(train_files: List[str], H: int, P: int, use_bias: bool
                 histp = traj[s-H+2:s+2]
                 gt_g    = traj[s+P]
                 gt_gp   = traj[s+1+P]
-                psi  = build_psi_from_hist_g(hist,  gt_g,  use_bias=use_bias)
-                psip = build_psi_from_hist_g(histp, gt_gp, use_bias=use_bias)
+                hvec  = hist[::-1].reshape(H2)
+                hvecp = histp[::-1].reshape(H2)
+                psi   = np.concatenate([hvec, gt_g], axis=0)
+                psip  = np.concatenate([hvecp, gt_gp], axis=0)
+                if use_bias:
+                    psi  = np.concatenate([psi,  [1.0]], axis=0)
+                    psip = np.concatenate([psip, [1.0]], axis=0)
                 P_cols.append(psi)
                 F_cols.append(psip)
     if len(P_cols) == 0:
@@ -235,9 +240,8 @@ def estimate_K(Pmat: np.ndarray, Fmat: np.ndarray, ridge: float = RIDGE_LAMBDA_D
 
 def build_psi_from_hist_g(hist: np.ndarray, g: np.ndarray, use_bias: bool=True) -> np.ndarray:
     H = hist.shape[0]
-    h = hist[::-1].reshape(2 * H)
-    h2 = (hist[::-1] ** 2).reshape(2 * H)
-    psi = np.concatenate([h, h2, g], axis=0)
+    hvec = hist[::-1].reshape(2*H)
+    psi = np.concatenate([hvec, g], axis=0)
     if use_bias:
         psi = np.concatenate([psi, [1.0]], axis=0)
     return psi
@@ -481,11 +485,12 @@ def create():
 
     torch.save(mdn.state_dict(), args.save_mdn)
     print(f"Saved MDN to {args.save_mdn}")
+
     Pmat, Fmat = collect_koopman_pairs(train_files, H, P, use_bias=True)
     K = estimate_K(Pmat, Fmat, ridge=args.ridge)
     np.save(args.save_K, K)
     print(f"Estimated K with shape {K.shape}, saved to {args.save_K}")
-    
+
     # ---------------- Save JSON config for evaluate_from_obs_all (no MDN) ----------------
     cfg = {
         "H": int(H),
