@@ -122,13 +122,13 @@ class EgocentricCPMPC:
         self._prediction_queue = []  # prediction results
         self._track_queue = []  # true configuration of dynamic obstacles
 
-    def __call__(self, pos_x, pos_y, orientation_z, boxes, predictions, goal):
+    def __call__(self, pos_x, pos_y, orientation_z, boxes, predictions, goal,history,**__):
         # Warning! The method can be invoked only when t >= N
         # Thus, the controller has to wait until at least N observations are collected.
 
         # update the observation queue & alpha^J_t's
         # The following line has been moved to the outer loop
-        # self.update_observations(obs=tracking_res)
+        self.update_observations(obs=history)
 
         # span a discrete search space (x^J_{...|t}: J in scr{J})
         paths, vels = self.generate_paths(pos_x, pos_y, orientation_z, n_skip=self.n_skip)
@@ -144,33 +144,31 @@ class EgocentricCPMPC:
 
         # update the prediction queue
         # moved to the outer loop
-        # self.update_predictions(predictions)
+        self.update_predictions(predictions)
 
         if safe_paths is None:
             return None, {
                 'feasible': False,
-                'quantiles': quantiles}
+                'quantiles': quantiles},0, 0, 0, 0, 0
         else:
-            path, vel, cost = self.score_paths(safe_paths, vels, goal)
-
+            path, vel, minimum, intermediate, control, terminal, minimal = self.score_paths(safe_paths, vels, goal)
             info = {
                 'feasible': True,
                 'candidate_paths': paths,
                 'safe_paths': safe_paths,
-                'final_path': path,
-                'cost': cost
+                'final_path': path
             }
 
-            return vel[1], info
+            return vel[3:13], info, minimum, intermediate, control, terminal, minimal
 
     @staticmethod
     def score_paths(paths, vels, goal):
         intermediate_cost = np.sum((paths[:, :-1, :] - goal) ** 2, axis=(-2, -1))
         control_cost = .001 * np.sum(vels ** 2, axis=(-2, -1))
         terminal_cost = 10. * np.sum((paths[:, -1, :] - goal) ** 2, axis=-1)
-        total_cost = intermediate_cost + control_cost + terminal_cost
-        minimum_cost = np.argmin(total_cost)
-        return paths[minimum_cost], vels[minimum_cost], total_cost[minimum_cost]
+        minimum_cost = np.argmin(intermediate_cost + control_cost + terminal_cost)
+        minimal = np.min(intermediate_cost + control_cost + terminal_cost)
+        return paths[minimum_cost], vels[minimum_cost], minimum_cost, intermediate_cost[minimum_cost], control_cost[minimum_cost], terminal_cost[minimum_cost], minimal
 
     def filter_unsafe_paths(
             self,

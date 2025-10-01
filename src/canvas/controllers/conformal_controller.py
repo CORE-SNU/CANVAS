@@ -14,22 +14,25 @@ class ConformalController:
         # assert .0 <= risk_level and risk_level <= 1.        # epsilon in [0, 1]
         self._epsilon = risk_level
 
-    def __call__(self, pos_x, pos_y, orientation_z, linear_x, angular_z, boxes, predictions, goal):
+    def __call__(self, pos_x, pos_y, orientation_z, linear_x, angular_z, boxes, predictions, goal,history, **__):
         paths, vels = self.generate_paths(pos_x, pos_y, orientation_z, n_skip=4)
         # paths, vels = self.generate_paths_wheel_vel(pos_x, pos_y, orientation_z, linear_x, angular_z)
         safe_paths, vels = self.filter_unsafe_paths(paths, vels, boxes)
         if safe_paths is None:
             # print('MPC infeasible')
-            return None, {'feasible': False}
+            self.update_conformal_var(pos_x, pos_y, history)
+            return None, {'feasible': False},0, 0, 0, 0, 0
         else:
-            path, vel = self.score_paths(safe_paths, vels, predictions, goal)
+            path, vel, minimum, intermediate, control, terminal, minimal = self.score_paths(safe_paths, vels,predictions, goal)
+            #path, vel = self.score_paths(safe_paths, vels, predictions, goal)
             info = {
                 'feasible': True,
                 'candidate_paths': paths,
                 'safe_paths': safe_paths,
                 'final_path': path
             }
-            return vel[1], info
+            self.update_conformal_var(pos_x, pos_y, history)
+            return vel[3:13], info, minimum, intermediate, control, terminal, minimal
 
     def score_paths(self, paths, vels, predictions, goal):
         intermediate_cost = np.sum((paths[:, :-1, :] - goal) ** 2, axis=(-2,-1))
@@ -44,7 +47,11 @@ class ConformalController:
         min_distances = np.min(distances, axis=0)
         avoidance_cost = -self._lambda * np.sum(min_distances, axis=-1)
         minimum_cost = np.argmin(intermediate_cost + control_cost + terminal_cost + avoidance_cost)
-        return paths[minimum_cost], vels[minimum_cost]
+        minimal = np.min(intermediate_cost + control_cost + terminal_cost + avoidance_cost)
+        #included avoidance cost
+        #return paths[minimum_cost], vels[minimum_cost]
+        return paths[minimum_cost], vels[minimum_cost], minimum_cost, intermediate_cost[minimum_cost], control_cost[minimum_cost], terminal_cost[minimum_cost], minimal
+
 
     def update_conformal_var(self, pos_x, pos_y, tracking_res):
         positions = np.array([xy[-1] for xy in tracking_res.values()])

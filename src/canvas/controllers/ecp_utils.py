@@ -27,7 +27,12 @@ def compute_quantiles(x, axis, levels):
 
     return quantiles
 
-
+def euclid_ignore_nan(u, v):
+    m = np.isfinite(u) & np.isfinite(v)
+    if not np.any(m):
+        return np.nan            # or return np.inf if you prefer
+    d = u[m] - v[m]
+    return float(np.sqrt(np.dot(d, d)))  # no scaling
 def compute_pairwise_distances(x, y):
     """
     x: numpy array of shape (m_0, ..., m_{k-1}, feature dim.) where k >= 0
@@ -43,7 +48,7 @@ def compute_pairwise_distances(x, y):
     X = np.reshape(x, newshape=(-1, feature_dim))
     Y = np.reshape(y, newshape=(-1, feature_dim))
     # matrix of shape (m_0 x ... x m_{k-1}, n_0 x ... x n_{l-1})
-    D = sklearn.metrics.pairwise_distances(X, Y, metric='euclidean')
+    D = sklearn.metrics.pairwise_distances(X, Y, metric=euclid_ignore_nan,ensure_all_finite="allow-nan")
     batch_shape = batch_shape_x + batch_shape_y
     D = np.reshape(D, newshape=batch_shape)
     return D

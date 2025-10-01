@@ -7,22 +7,22 @@ class SamplingBasedMPC:
         self._n_steps = n_steps
         self._dt = dt
 
-    def __call__(self, pos_x, pos_y, orientation_z, linear_x, angular_z, boxes, predictions, confidence_intervals, goal):
+    def __call__(self, pos_x, pos_y, orientation_z, linear_x, angular_z, boxes, predictions, confidence_intervals, goal,**__):
         paths, vels = self.generate_paths(pos_x, pos_y, orientation_z, linear_x, angular_z)
         # paths, vels = self.generate_paths_wheel_vel(pos_x, pos_y, orientation_z, linear_x, angular_z)
         safe_paths, vels = self.filter_unsafe_paths(paths, vels, boxes, predictions, confidence_intervals)
         if safe_paths is None:
             # print('MPC infeasible')
-            return None, {'feasible': False}
+            return None, {'feasible': False},0, 0, 0, 0, 0
         else:
-            path, vel = self.score_paths(safe_paths, vels, goal)
+            path, vel, minimum, intermediate, control, terminal, minimal = self.score_paths(safe_paths, vels, goal)
             info = {
                 'feasible': True,
                 'candidate_paths': paths,
                 'safe_paths': safe_paths,
                 'final_path': path
             }
-            return vel[1], info
+            return vel[3:13], info, minimum, intermediate, control, terminal, minimal
 
     @staticmethod
     def score_paths(paths, vels, goal):
@@ -30,7 +30,10 @@ class SamplingBasedMPC:
         control_cost = .1 * np.sum(vels ** 2, axis=(-2, -1))
         terminal_cost = 10. * np.sum((paths[:, -1, :] - goal) ** 2, axis=-1)
         minimum_cost = np.argmin(intermediate_cost + control_cost + terminal_cost)
-        return paths[minimum_cost], vels[minimum_cost]
+        minimal = np.min(intermediate_cost + control_cost + terminal_cost)
+        #return paths[minimum_cost], vels[minimum_cost]
+        return paths[minimum_cost], vels[minimum_cost], minimum_cost, intermediate_cost[minimum_cost], control_cost[minimum_cost], terminal_cost[minimum_cost], minimal
+
 
     @staticmethod
     def filter_unsafe_paths(paths, vels, boxes, predictions, confidence_intervals):
