@@ -713,3 +713,257 @@ def save_frame_painted_then_mpl(
     fig.savefig(out_path, dpi=fig.dpi, bbox_inches=None, pad_inches=0)
     plt.close(fig)
     return out_path
+def save_frame_mpl_traj(
+    outdir: str,
+    frame_idx: int,
+    static_boxes: Optional[list]=None,
+    robot_xy: Optional[Tuple[float, float]]=None,
+    robot_traj_xy: Optional[Tuple[list[float], list[float]]]=None,
+    goal_xy: Optional[Tuple[float, float]]=None,
+    r_star: Optional[float]=None,
+    # data
+    valid_obs: Optional[Dict]=None,
+    valid_obs_future_true: Optional[Dict]=None,
+    prediction_res: Optional[Dict]=None,
+    # homography
+    homography_H: Optional[np.ndarray]=None,                # 3x3
+    # CI controls
+    annotate_ci: bool=False,
+    ci_cmap: str='plasma',
+    ci_vmin: float=0.0,
+    ci_vmax: float= 1.0,
+    ci_thick_min: int=2,
+    ci_thick_max: int=5,
+    # draw options
+    pred_steps: Optional[int]=None,
+    paint_alpha: float=1.0,  # <1.0 = blended overlay
+    # background
+    background_image: np.ndarray=None,  # BGR or RGB; uint8 preferred
+    assume_bgr: bool=True,              # True if your bg/painting path uses cv2 BGR
+    # legend/colorbar
+    add_legend: bool=True,
+    add_colorbar: bool=True,
+    cbar_label: str='CI Control',
+    ci_data: Optional[np.ndarray]=None,  # (N,) values to color robot trajectory
+) -> str:
+    """Paint trajectories onto the image (cv2), then add legend + colorbar in Matplotlib."""
+    import os, cv2, numpy as np, matplotlib as mpl
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+    from matplotlib.lines import Line2D
+
+    assert background_image is not None, "background_image is required."
+
+    img = background_image.copy()
+    if img.dtype != np.uint8:
+        img = np.clip(img, 0, 255).astype(np.uint8)
+    elif img.ndim == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    if img.ndim == 3:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    elif img.shape[2] == 4:
+        img = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+
+
+    H_img, W_img = img.shape[:2]
+    overlay = img.copy()
+
+    # --- homography helper ---
+    def apply_h(world_pts: np.ndarray) -> np.ndarray:
+        if world_pts is None or len(world_pts) == 0:
+            return None
+        mask = np.isfinite(world_pts).all(axis=1)
+        if not np.any(mask):
+            return None
+        wp = world_pts[mask]
+        if homography_H is None:
+            # If no H is given, assume world already in pixel frame
+            return wp[:, :2]
+        # Expected: to_image_frame(wp, H) -> xs, ys
+        xs, ys = to_image_frame(wp, homography_H)  # your existing util
+        return np.stack([xs, ys], axis=1)
+
+    # --- color mapping (fixed range) ---
+    norm = mpl.colors.Normalize(vmin=float(ci_vmin), vmax=float(ci_vmax), clip=True)
+    cmap = cm.get_cmap(ci_cmap)
+
+    def color_from_ci(ci_val: float):
+        r, g, b, _ = cmap(norm(ci_val))  # Matplotlib returns RGBA in [0,1]
+        # cv2 uses BGR with [0..255] ints
+        return (int(255*b), int(255*g), int(255*r))  # BGR
+
+    def thickness_from_ci(ci_val: float) -> int:
+        frac = (ci_val - norm.vmin) / (norm.vmax - norm.vmin + 1e-12)
+        frac = float(np.clip(frac, 0.0, 1.0))
+        return int(round(ci_thick_min + frac * (ci_thick_max - ci_thick_min)))
+
+    # --- draw utilities ---
+    def draw_polyline(uv: np.ndarray, color, thick=2):
+        pts = np.round(uv).astype(int)
+        for i in range(len(pts)-1):
+            cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), color, thick, lineType=cv2.LINE_AA)
+
+    # --- HISTORY (navy-ish) ---
+    if valid_obs:
+        navy = (128, 0, 0)  # BGR-ish dark blue
+        for _, arr in valid_obs.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                uv = apply_h(a[:, :2])
+                if uv is None or len(uv) < 2 or not np.isfinite(uv).all():
+                    continue
+                draw_polyline(uv, navy, thick=2)
+                c = tuple(np.round(uv[-1]).astype(int))
+                cv2.circle(overlay, c, radius=3, color=navy, thickness=-1, lineType=cv2.LINE_AA)
+
+    # --- GT FUTURE (black dashed-ish) ---
+    if valid_obs_future_true:
+        black = (0, 0, 0)
+        for _, arr in valid_obs_future_true.items():
+            a = np.asarray(arr, dtype=np.float64)
+            if a.ndim == 2 and a.shape[1] >= 2:
+                uv = apply_h(a[:12, :2])
+                if uv is None or len(uv) < 2 or not np.isfinite(uv).all():
+                    continue
+                pts = np.round(uv).astype(int)
+                for i in range(len(pts)-1):
+                    if i % 2 == 0:
+                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), black, 1, cv2.LINE_AA)
+    # --- PREDICTION (CI-colored) ---
+    """
+    if prediction_res:
+        for pid, arr in prediction_res.items():
+            p_world = np.asarray(arr, dtype=np.float64)
+            if not (p_world.ndim == 2 and p_world.shape[1] >= 2):
+                continue
+            n_keep = pred_steps if (pred_steps is not None) else 12
+            p_world = p_world[:n_keep, :2]
+            if len(p_world) < 2 or not np.isfinite(p_world).all():
+                continue
+
+            p_uv = apply_h(p_world)
+            if p_uv is None or not np.isfinite(p_uv).all():
+                continue
+            pts = np.round(p_uv).astype(int)
+
+            if annotate_ci and (r_star is not None) and (r_star > 0) and valid_obs_future_true and (pid in valid_obs_future_true):
+                gt_world = np.asarray(valid_obs_future_true[pid], dtype=np.float64)[:len(p_world), :2]
+                if len(gt_world) >= 2 and np.isfinite(gt_world).all():
+                    errs = np.linalg.norm(p_world[:len(gt_world)] - gt_world, axis=1)
+                    cis  = (r_star - errs) / r_star
+                    cvals = cis[1:]
+                    for i in range(len(pts)-1):
+                        ci_val = cvals[i] if i < len(cvals) else cvals[-1]
+                        color  = color_from_ci(float(ci_val))
+                        thick  = thickness_from_ci(float(ci_val))
+                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), color, thick, cv2.LINE_AA)
+                    continue
+
+            # fallback: plain red
+            red = (0, 0, 255)
+            for i in range(len(pts)-1):
+                cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), red, ci_thick_min, cv2.LINE_AA)"""
+    # --- PREDICTION (plain red for now) ---
+    if prediction_res:
+        for pid, arr in prediction_res.items():
+            p_world = np.asarray(arr, dtype=np.float64)
+            if not (p_world.ndim == 2 and p_world.shape[1] >= 2):
+                continue
+            n_keep = pred_steps if (pred_steps is not None) else 12
+            p_world = p_world[:n_keep, :2]
+            if len(p_world) < 2 or not np.isfinite(p_world).all():
+                continue
+
+            p_uv = apply_h(p_world)
+            if p_uv is None or not np.isfinite(p_uv).all():
+                continue
+            pts = np.round(p_uv).astype(int)
+            red = (0, 0, 255)
+            for i in range(len(pts)-1):
+                cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), red, ci_thick_min, cv2.LINE_AA)
+
+    # === NEW: ROBOT TRAJECTORY (CI-colored) ===
+    if robot_traj_xy is not None:
+        px, py = robot_traj_xy
+        if px is not None and py is not None and len(px) >= 2 and len(py) >= 2:
+            rt_world = np.column_stack([np.asarray(px, float), np.asarray(py, float)])
+            rt_uv = apply_h(rt_world)
+            if rt_uv is not None and len(rt_uv) >= 2 and np.isfinite(rt_uv).all():
+                pts = np.round(rt_uv).astype(int)
+
+                # Determine per-segment CI values
+                seg_vals = None
+                if ci_data is not None:
+                    cvals = np.asarray(ci_data, dtype=float).ravel()
+                    if len(cvals) == len(pts):
+                        # node-wise -> average to segment-wise
+                        seg_vals = 0.5 * (cvals[:-1] + cvals[1:])
+                    elif len(cvals) == len(pts) - 1:
+                        seg_vals = cvals
+                    else:
+                        # interpolate to segment count
+                        nseg = len(pts) - 1
+                        seg_idx = np.linspace(0, max(1, len(cvals) - 1), nseg)
+                        base_idx = np.arange(len(cvals))
+                        seg_vals = np.interp(seg_idx, base_idx, cvals)
+
+                # Draw with CI-based color/thickness (or fallback color)
+                if seg_vals is not None:
+                    for i in range(len(pts)-1):
+                        ci_val = float(seg_vals[i])
+                        color  = color_from_ci(ci_val)
+                        thick  = thickness_from_ci(ci_val) if annotate_ci else ci_thick_min
+                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), color, thick, cv2.LINE_AA)
+                else:
+                    # Fallback single-color if ci_data missing
+                    for i in range(len(pts)-1):
+                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]),
+                                 (0, 255, 0), ci_thick_min, cv2.LINE_AA)  # green
+
+            # Optionally mark current robot & goal positions
+            if robot_xy is not None and np.all(np.isfinite(robot_xy)):
+                r_uv = apply_h(np.array([robot_xy], float))
+                if r_uv is not None:
+                    cv2.circle(overlay, tuple(np.round(r_uv[0]).astype(int)),
+                               radius=4, color=(255, 255, 255), thickness=-1, lineType=cv2.LINE_AA)
+            if goal_xy is not None and np.all(np.isfinite(goal_xy)):
+                g_uv = apply_h(np.array([goal_xy], float))
+                if g_uv is not None:
+                    cv2.drawMarker(overlay, tuple(np.round(g_uv[0]).astype(int)),
+                                   color=(0, 255, 255), markerType=cv2.MARKER_STAR,
+                                   markerSize=10, thickness=2, line_type=cv2.LINE_AA)
+
+    # --- blend overlay to base image ---
+    painted = overlay if paint_alpha >= 1.0 else cv2.addWeighted(overlay, paint_alpha, img, 1.0 - paint_alpha, 0.0)
+
+    # ---------- MATPLOTLIB: add legend + colorbar on top of painted image ----------
+    shown = painted if not assume_bgr else cv2.cvtColor(painted, cv2.COLOR_BGR2RGB)
+
+    # keep 1:1 pixel size with a square default; adjust if your image isn't square
+    fig_dpi = max(1, int(W_img / 6))  # keeps width ~W_img px for figsize=(6,6)
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=fig_dpi)
+    ax.imshow(shown, interpolation='lanczos')
+    ax.set_axis_off()
+
+    # Colorbar sharing the same norm & cmap
+    if add_colorbar:
+        mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+        mappable.set_array([])
+        cb = plt.colorbar(mappable, ax=ax, pad=0.01)
+        cb.set_label(cbar_label, rotation=90, labelpad=12, va='center')
+
+    # Legend with proxy handles
+    if add_legend:
+        proxy_ci_color = cmap(norm(0.5*(ci_vmin+ci_vmax)))
+        legend_elements = [
+            Line2D([0], [0], color='navy',  lw=2,   linestyle='-',  label='History (8)'),
+            Line2D([0], [0], color='black', lw=1,   linestyle='--', label='GT future (12)'),
+            Line2D([0], [0], color=proxy_ci_color, lw=3, label='Prediction (12)'),
+        ]
+        ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
+
+    os.makedirs(outdir, exist_ok=True)
+    out_path = os.path.join(outdir, f"frame_{frame_idx:06d}.png")
+    fig.savefig(out_path, dpi=fig.dpi, bbox_inches=None, pad_inches=0)
+    plt.close(fig)
+    return out_path
