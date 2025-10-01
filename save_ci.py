@@ -155,7 +155,7 @@ def save_ci_iteration_csv(iter_out_dir,
 # ============================================================
 # CI visualizer to .png file per frame
 # ============================================================
-def save_frame_png(outdir,
+def save_frame_png(outdir,   # Will be deprecated
                    frame_idx,
                    static_boxes,
                    robot_xy,
@@ -291,6 +291,7 @@ def save_frame_png(outdir,
     fig.savefig(path)
     plt.close(fig)
     return str(path)
+
 def save_frame_png_spectrum_video(outdir,
                    frame_idx,
                    static_boxes,
