@@ -4,7 +4,7 @@ import csv
 import numpy as np
 import pathlib
 from typing import Dict, Tuple, Optional, Iterable
-from src.canvas import Box
+from canvas import Box
 
 # --- Matplotlib (headless) ---
 import matplotlib

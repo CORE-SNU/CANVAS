@@ -15,7 +15,7 @@ import sys
 _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
-from src.canvas import Environment, Box, GridMPC, AdaptiveConformalPredictionModule, Predictors
+from canvas import Environment, Box, GridMPC, AdaptiveConformalPredictionModule, Predictors
 matplotlib.use('Agg')
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 

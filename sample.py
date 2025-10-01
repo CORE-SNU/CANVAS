@@ -1,5 +1,5 @@
-from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, GridMPC, AdaptiveConformalPredictionModule,\
+from canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
+from canvas import Environment, GridMPC, AdaptiveConformalPredictionModule,\
  Predictors, CompetencyIndex, Predictor_CI,dynamic_observation_filter ,region_to_box
 import numpy as np
 
