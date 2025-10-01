@@ -4,9 +4,6 @@ import numpy as np
 import cv2
 import pathlib
 import os
-import subprocess
-import random
-import pickle
 import csv
 
 import sys
@@ -17,21 +14,8 @@ from src.canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors,\
         CompetencyIndex, Predictor_CI, region_to_box,dynamic_observation_filter
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv,save_frame_painted_then_mpl
-from matplotlib.patches import Circle, Polygon
-from matplotlib.lines import Line2D
 from math import radians, cos, sin
 from sim_raw_overlay import RawVideoOverlay
-
-"""
-Simulation pipeline (per frame):
-
-  input (history/GT-future) -> predictor -> prediction output -> controller ->
-  control output (apply first timestep) / cost function (minimal, inter, term, ctrl)
-
-- Predictor is called ONCE per frame
-- Controller (MPC) is called ONCE per frame with predictor outputs
-- CP (adaptive conformal) is updated ONCE per frame using current observations & predictions
-"""
 
 # -----------------------------
 # Static map geometry → boxes
@@ -74,12 +58,12 @@ for region in regions:
 # -----------------------------
 # Main
 # -----------------------------
-def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video,
-         overlay, frame_offset, extracted_fps, output_fps,max_ped):
-    # Simulation rates
-    #dt = 0.10
-    dt = 1/2.5
-
+def main(start_x, start_y, dt, goal_x, goal_y, num_iter, max_ped 
+         dataset, predictor, controller, 
+         video_fps, save_video, frame_offset, extracted_fps, output_fps):
+    # Simulation rates (usually, 0.1)
+    dt = dt 
+ 
     persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
 
     # Predictor horizon
@@ -87,8 +71,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
     history_len = 8
 
     # Unified R* (kept for future score/CI; not used in controller)
-    rstar = r_star
-    #steps_to_eval = (2, 5, 10)
+    rstar = 0.5
 
     # -----------------------------
     # GLOBAL BUFFERS (logging)
@@ -208,16 +191,15 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         video_path = iter_out_dir / f"sim_iter_{times+1:03d}_mpl.mp4"
 
         overlay_result = None
-        if overlay:
-            out_mp4 = iter_out_dir / f"sim_iter_{times+1:03d}_raw_overlay.mp4"
-            overlay_result = RawVideoOverlay(
-                dataset=dataset,
-                out_video_path=str(out_mp4),
-                frame_offset=frame_offset,
-                sim_dt=dt,
-                extracted_fps=extracted_fps,
-                output_fps=output_fps
-            )
+        out_mp4 = iter_out_dir / f"sim_iter_{times+1:03d}_raw_overlay.mp4"
+        overlay_result = RawVideoOverlay(
+            dataset=dataset,
+            out_video_path=str(out_mp4),
+            frame_offset=frame_offset,
+            sim_dt=dt,
+            extracted_fps=extracted_fps,
+            output_fps=output_fps
+        )
 
         while not done:
             detect_time = time.time()
@@ -528,14 +510,11 @@ if __name__ == "__main__":
     parser.add_argument('--goal_x', type=float, default=8.0)  # 8.0 , 6.0
     parser.add_argument('--goal_y', type=float, default=0.2)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
-    parser.add_argument('--r_star', type=float, default=0.5)
     parser.add_argument('--dataset', type=str, default="Zara01")
     parser.add_argument('--predictor', type=str, default="traj")
     parser.add_argument('--save_video', type=bool, default=True)
     parser.add_argument('--video_fps', type=float, default=2.5)
     #============================================================
-    parser.add_argument("--overlay", type=bool, default=True,
-                        help="Use homography to draw history/GT/prediction on extracted real frames")
     parser.add_argument("--frame_offset", type=int, default=40,
                         help="Align sim time to real frames (index shift)")
     parser.add_argument("--extracted_fps", type=float, default=2.5,
@@ -546,7 +525,11 @@ if __name__ == "__main__":
                     help="Max pedestrians to consider (others ignored)")
     args = parser.parse_args()
 
-    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,
-         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps, max_ped=args.max_ped)
+    main(args.goal_x, args.goal_y, 
+         args.num_iter, args.dataset, args.predictor, 
+         video_fps=args.video_fps, save_video=args.save_video,
+         overlay=args.overlay, frame_offset=args.frame_offset, 
+         extracted_fps=args.extracted_fps, output_fps=args.output_fps, 
+         max_ped=args.max_ped)
 
 
