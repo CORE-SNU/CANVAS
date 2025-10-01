@@ -349,14 +349,16 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
 
             # --------- Visualization (CI labels disabled by default) ---------
             try:
+                """
                 if cont_CI=="traj":
-                    ci_data.append(ci_traj_series[CI_t])
+                    ci_data.append(np.mean(ci_traj_series))
                 elif cont_CI=="control":
                     ci_data.append(np.mean(ci_ctrl_series))
                 elif cont_CI=="objective":
                     ci_data.append(ci_obj_val)
                 elif cont_CI=="ctrl_cost":
-                    ci_data.append(ci_ctrlcost_val)
+                    ci_data.append(ci_ctrlcost_val)"""
+                ci_data.append(rstar/(rstar+confidence_intervals[CI_t]))
                 bg_img = _load_background_image(overlay_result._frame_path_for_current(), spec.bg.rotate90)
                 frame_png=save_frame_mpl_traj(
                     outdir=iter_out_dir,
@@ -372,7 +374,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     annotate_ci=False,  # keep False here; enable later if needed
                     background_image=bg_img,
                     homography_H=overlay_result.H,
-                    cbar_label ='CI Control '+f'({cont_CI})',
+                    cbar_label ='CI Control Prediction',
                     ci_data=ci_data,
                 )
                 if save_video:
@@ -385,7 +387,6 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                         video_writer.write(img)
             except Exception as e:
                 print(f"[WARN] viz save failed at frame {frame}: {e}")
-            print(np.mean(ci_traj_series),np.mean(ci_ctrl_series),ci_obj_val,ci_ctrlcost_val )
             if overlay_result is not None:
                 overlay_result.step(valid_obs, valid_obs_future_true, prediction_res)
             
@@ -541,7 +542,7 @@ if __name__ == "__main__":
     parser.add_argument('--goal_x', type=float, default=8.0)  # 8.0 , 6.0
     parser.add_argument('--goal_y', type=float, default=0.2)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
-    parser.add_argument('--r_star', type=float, default=0.5)
+    parser.add_argument('--r_star', type=float, default=0.24)
     parser.add_argument('--dataset', type=str, default="Zara01")
     parser.add_argument('--predictor', type=str, default="traj")
     parser.add_argument('--save_video', type=bool, default=True)
@@ -555,13 +556,14 @@ if __name__ == "__main__":
                         help="FPS used by video_parser.py to extract frames")
     parser.add_argument("--output_fps", type=float, default=10.0,
                         help="Output MP4 FPS; defaults to extracted_fps")
-    parser.add_argument("--max_ped", type=float, default=3.0,
+    parser.add_argument("--max_ped", type=float, default=6.0,
                     help="Max pedestrians to consider (others ignored)")
     parser.add_argument("--cont_CI", type=str, default="traj",
                     help="Continuous CI type: traj, control, obj, ctrl_cost to map on video.")
     parser.add_argument("--CI_t", type=int, default=3,
                     help="CI to use for pred.")
     args = parser.parse_args()
+
     main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,
          overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps, max_ped=args.max_ped,cont_CI=args.cont_CI,CI_t=args.CI_t)
 
