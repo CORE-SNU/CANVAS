@@ -192,6 +192,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                                                       max_interval_lengths=max_interval_lengths,
                                                       sample_size=20,
                                                       offline_calibration_set=offline_calibration_set)
+
+
         cp_module_gt = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
                                                       step_size=0.05,
                                                       n_scores=prediction_len,
