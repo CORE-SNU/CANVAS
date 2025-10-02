@@ -110,3 +110,4 @@ You can run the simulation with "main_program.py" with some dedicated variables
 
 # Update Log
 [2025-10-02 19:45] move src/canvas to canvas; move all simulation*.py files into examples
+[2025-10-02 20:48] Dataset class added; defined in `canvas.datasets.dataset`
