@@ -68,7 +68,7 @@ index.save_res('competency_example.npy')
 
 ## Running the simulation
 
-You can run the simulation with "simulation.py" with some dedicated variables
+You can run the simulation with "main_program.py" with some dedicated variables
 
 * --goal_x, --goal_y : Goal position for control test (default : (8.0, 0.2))
 * --num_iter : Number of iterations for simulation (default : 1)
