@@ -4,11 +4,6 @@ import numpy as np
 import cv2
 import pathlib
 import os
-import subprocess
-import random
-import pickle
-import csv
-
 import sys
 _DATA_DIR = os.path.dirname(__file__)
 
@@ -97,6 +92,31 @@ def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e
         resolution=resolution,
         pos=np.array([x_center, y_center], dtype=float)
     )
+
+class Simulation():
+    def __init__(self, environment, predictor, controller, cp_module, goal, max_pedestrian, persistent_static_boxes, dataset):
+        self.env = environment
+        self.predictor = predictor
+        self.controller = controller
+        self.cp_module = cp_module
+        self.goal = goal
+        self.max_ped = max_pedestrian
+        self.persistent_static_boxes = persistent_static_boxes
+        self.dataset = dataset
+
+    def run(self, num_iter: int):
+        for times in range(num_iter):
+            print("==================================")
+            print("SIMULATION PIPELINE Started")
+            print("==================================")
+            frame = 0
+            infeasible_count = 0
+            infeasible_streak = 0
+            max_infeasible_streak = 10
+            collision_count = 0
+            is_success = False
+
+
 
 
 # -----------------------------

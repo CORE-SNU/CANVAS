@@ -18,45 +18,8 @@ from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_
 save_ci_iteration_csv,save_frame_painted_then_mpl, save_frame_mpl_traj
 from math import radians, cos, sin
 from sim_raw_overlay import RawVideoOverlay
-import simulation
+from simulation import Simulation
 
-# -----------------------------
-# Static map geometry → boxes
-# -----------------------------
-#persistent_static_boxes = []    # Save static object as bounding box
-
-'''
-regions = [
-    {"name": "glass door below", "xmin": 0.3, "xmax": 5.0, "ymin": -12.0, "ymax": -6.3},
-    {"name": "left glass", "xmin": -7.0, "xmax": 0.3, "ymin": -12.0, "ymax": -8.5},
-    {"name": "right glass", "xmin": 5.0, "xmax": 13.0, "ymin": -12.0, "ymax": -8.5},
-    {"name": "left wall", "xmin": -7.0, "xmax": -2.1, "ymin": -12.0, "ymax": -0.3},
-    {"name": "right wall", "xmin": 7.8, "xmax": 13.0, "ymin": -12.0, "ymax": -0.3},
-    {"name": "upper-left wall", "xmin": -7.0, "xmax": -1.9, "ymin": 1.1, "ymax": 5.0},
-    {"name": "upper wall", "xmin": -0.5, "xmax": 13.0, "ymin": 0.9, "ymax": 5.0},
-    {"name": "middle square", "xmin": 2.0, "xmax": 3.4, "ymin": -4.6, "ymax": -1.6},
-    {"name": "left cylinder", "xmin": -0.7, "xmax": 0.5, "ymin": -1.5, "ymax": -0.6},
-    {"name": "right cylinder", "xmin": 5.3, "xmax": 6.4, "ymin": -1.8, "ymax": -0.8},
-]
-for region in regions:
-    x_center = (region["xmin"] + region["xmax"]) / 2
-    y_center = (region["ymin"] + region["ymax"]) / 2
-    width = region["xmax"] - region["xmin"]
-    height = region["ymax"] - region["ymin"]
-    box = Box(
-        x=x_center, y=y_center, w=width, h=height, deg=0, rad=0,
-        area=width * height,
-        vertices=np.array([
-            [x_center - width / 2, y_center - height / 2],
-            [x_center + width / 2, y_center - height / 2],
-            [x_center + width / 2, y_center + height / 2],
-            [x_center - width / 2, y_center + height / 2]
-        ]),
-        resolution=0.001,
-        pos=np.array([x_center, y_center])
-    )
-    persistent_static_boxes.append(box)
-'''
 
 # -----------------------------
 # Main
@@ -95,6 +58,7 @@ def main(dataset, predictor, controller,
     npy_path = os.path.join(datasets_dir, fname_map[dataset])
     init_robot_pose = np.array([start_x, start_y, np.pi / 2.]) # Start position for control test
     goal = np.array([goal_x, goal_y]) # Goal position for control test
+    persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
     env = Environment(
             filepath=npy_path,
             dt=dt,
@@ -106,17 +70,22 @@ def main(dataset, predictor, controller,
     max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1) # Maximum interval length setting
     offline_calibration_set = {i: [] for i in range(prediction_len)}
     cp_module = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
-                                                      step_size=0.05,
-                                                      n_scores=prediction_len,
-                                                      max_interval_lengths=max_interval_lengths,
-                                                      sample_size=20,
-                                                      offline_calibration_set=offline_calibration_set)
+                                                  step_size=0.05,
+                                                  n_scores=prediction_len,
+                                                  max_interval_lengths=max_interval_lengths,
+                                                  sample_size=20,
+                                                  offline_calibration_set=offline_calibration_set)
     # Choose controller for control test
     controller = controllers(chosen_controller=controller,prediction_len=prediction_len,dt=dt)
-    
-    persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
-
-    
+    # Control test simulation setting
+    sim = Simulation(environment=env, 
+                     predictor=predictor,
+                     controller=controller,
+                     cp_module=cp_module,
+                     goal=goal,
+                     max_pedestrian=max_ped,
+                     persistent_static_boxes=persistent_static_boxes,
+                     dataset=dataset)
 
     # GLOBAL BUFFERS (logging)
     buffer_collision_rate = []
@@ -167,8 +136,6 @@ def main(dataset, predictor, controller,
 
         spec = get_dataset_spec(dataset)
         bg_img = _load_background_image(spec.bg.path, spec.bg.rotate90)
-        bg_extent = spec.bg.extent
-        bg_alpha = spec.bg.alpha
 
         # ---- CP module (updated once per frame) ----
         
@@ -370,7 +337,7 @@ def main(dataset, predictor, controller,
                     v, w = 0.0, 0.0
                 print(frame, 'No safe paths found, stopping robot movement for this frame.',
                       position_x, position_y, v, w, time.time() - detect_time)
-                environment.step([v, w])
+                env.step([v, w])
                 frame += 1
                 infeasible_count += 1
                 infeasible_streak += 1
@@ -384,7 +351,7 @@ def main(dataset, predictor, controller,
             # --------- Goal check ---------
             if np.abs(position_x - goal[0]) < 0.3 and np.abs(position_y - goal[1]) < 0.3:
                 print(frame, 'Goal reached!')
-                environment.step([0, 0])
+                env.step([0, 0])
                 is_success = True
                 success_count += 1
                 travel_time = time.time() - begin
@@ -402,7 +369,7 @@ def main(dataset, predictor, controller,
                 cmd_linear_x, cmd_angular_z = velocity[0]
             else:
                 cmd_linear_x, cmd_angular_z = 0.0, 0.0
-            robot_pose, done = environment.step([cmd_linear_x, cmd_angular_z])
+            robot_pose, done = env.step([cmd_linear_x, cmd_angular_z])
             position_x, position_y, orientation_z = robot_pose
             print(frame, position_x, position_y, orientation_z, cmd_linear_x, cmd_angular_z, time.time() - detect_time)
 

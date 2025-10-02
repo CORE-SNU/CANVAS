@@ -207,17 +207,16 @@ def save_frame_png(outdir,   # Will be deprecated
             poly = Polygon(b.vertices, closed=True,
                            facecolor='gray', edgecolor='gray',
                            linewidth=1, zorder=0.1)
-            #ax.add_patch(poly)
+            ax.add_patch(poly)
 
     # Robot trajectory / current / goal
     px, py = robot_traj_xy
-    '''
+    
     if len(px) and len(py):
         ax.plot(px, py, linewidth=2)
     ax.scatter([robot_xy[0]], [robot_xy[1]], marker='o', s=30)
     if goal_xy is not None:
         ax.scatter([goal_xy[0]], [goal_xy[1]], marker='*', s=80)
-    '''
     
     # History(8)
     if valid_obs:
@@ -540,6 +539,7 @@ def save_frame_png_spectrum_robot(outdir,
     fig.savefig(path)
     plt.close(fig)
     return str(path)
+
 def save_frame_painted_then_mpl(
     outdir: str,
     frame_idx: int,
@@ -714,6 +714,7 @@ def save_frame_painted_then_mpl(
     fig.savefig(out_path, dpi=fig.dpi, bbox_inches=None, pad_inches=0)
     plt.close(fig)
     return out_path
+
 def save_frame_mpl_traj(
     outdir: str,
     frame_idx: int,
@@ -813,7 +814,7 @@ def save_frame_mpl_traj(
         base_x   = np.linspace(0.0, 1.0, num=len(c))
         target_x = np.linspace(0.0, 1.0, num=nseg)
         return np.interp(target_x, base_x, c)
-
+    
     # --- HISTORY (pedestrians): navy for early part, CI-colored for last 8 ---
     if valid_obs:
         navy = (128, 0, 0)  # BGR-ish dark blue
@@ -947,8 +948,10 @@ def save_frame_mpl_traj(
     # keep 1:1 pixel size with a square default; adjust if your image isn't square
     fig_dpi = max(1, int(W_img / 6))  # keeps width ~W_img px for figsize=(6,6)
     fig, ax = plt.subplots(figsize=(6, 6), dpi=fig_dpi)
+
     ax.imshow(shown, interpolation='lanczos')
-    ax.set_axis_off()
+    #ax.set_axis_off()
+    ax.grid(True)
 
     # Colorbar sharing the same norm & cmap
     if add_colorbar:

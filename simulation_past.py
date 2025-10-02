@@ -149,7 +149,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         frame = 0
         infeasible_count = 0
         infeasible_streak = 0
-        max_infeasible_streak = 10
+        max_infeasible_streak = 100
         collision_count = 0
         is_success = False
 
@@ -200,7 +200,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                                                       offline_calibration_set=offline_calibration_set)
 
         begin = time.time()
-        init_robot_pose = np.array([0, 0, np.pi / 2.])  # Initial robot position setting
+        init_robot_pose = np.array([1, 5, np.pi / 2.])  # Initial robot position setting
         t_begin = 40
         t_end = 2000
         buffer_vel = []
