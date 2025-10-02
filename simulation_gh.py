@@ -212,8 +212,8 @@ def main(dataset, predictor, controller,
             buffer_pos_y.append(position_y)
 
             # --------- Observations (history & GT futures) ---------
-            observation = environment._get_obs()
-            observation_future_true = environment._get_obs_future()
+            observation = env._get_obs()
+            observation_future_true = env._get_obs_future()
 
             # Filter valid histories and GT futures (finite & correct shape)
             valid_obs = {}
