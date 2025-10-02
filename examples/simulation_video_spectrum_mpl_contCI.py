@@ -187,7 +187,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         npy_path = os.path.join(datasets_dir, fname_map[dataset])
 
         # iteration output dir for viz
-        iter_out_dir = pathlib.Path("../viz") / f"iter_{times+1:03d}"
+        iter_out_dir = pathlib.Path(os.path.dirname(os.path.dirname(__file__))) / 'viz' / f"iter_{times+1:03d}"
         iter_out_dir.mkdir(parents=True, exist_ok=True)
 
         environment = Environment(
