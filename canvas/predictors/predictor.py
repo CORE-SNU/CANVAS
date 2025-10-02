@@ -12,7 +12,7 @@ class Predictors:
     def __init__(self, chosen_predictor='linear',
                  prediction_len=12,history_len=8,
                  dt=0.1,smoothing_factor=0.75,
-                 model_dir='src/canvas/predictors/eigen/models/lobby_data/model_best.pth', #'src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3'
+                 model_dir='canvas/predictors/eigen/models/lobby_data/model_best.pth', #'src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3'
                  device='cpu',
                  dataset='Lobby',
                  cfg='src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
@@ -44,15 +44,15 @@ class Predictors:
         elif name in ("trajectron", "traj", "tpp"):
             # Trajectron++ predictor
             if(dataset=='ETH'):
-                model_dir="src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3"
+                model_dir="canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3"
             elif(dataset=='Hotel'):
-                model_dir="src/canvas/predictors/trajectron/models_10_Feb_2025_21_00_50hotel_vel_ar3"
+                model_dir="canvas/predictors/trajectron/models_10_Feb_2025_21_00_50hotel_vel_ar3"
             elif(dataset=='Univ'):
-                model_dir="src/canvas/predictors/trajectron/models_10_Feb_2025_15_01_26_univ_vel_ar3"
+                model_dir="canvas/predictors/trajectron/models_10_Feb_2025_15_01_26_univ_vel_ar3"
             elif(dataset=='Zara01'):
-                model_dir="src/canvas/predictors/trajectron/models_10_Feb_2025_11_19_14_zara01_vel_ar3"
+                model_dir="canvas/predictors/trajectron/models_10_Feb_2025_11_19_14_zara01_vel_ar3"
             elif(dataset=='Zara02'):
-                model_dir="src/canvas/predictors/trajectron/models_03_Feb_2025_14_11_39_zara02_vel_ar3"
+                model_dir="canvas/predictors/trajectron/models_03_Feb_2025_14_11_39_zara02_vel_ar3"
             elif(dataset=='Lobby'):
                 model_dir="src/canvas/predictors/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
             else:
@@ -70,23 +70,23 @@ class Predictors:
         elif name in ("eigen", "eigentrajectory", "eigen_traj"):
             # EigenTrajectory predictor
             if(dataset=='ETH'):
-                model_dir="src/canvas/predictors/eigen/models/eth/model_best.pth"
-                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-eth.json"
+                model_dir="canvas/predictors/eigen/models/eth/model_best.pth"
+                cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-eth.json"
             elif(dataset=='Hotel'):
-                model_dir="src/canvas/predictors/eigen/models/hotel/model_best.pth"
-                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-hotel.json"
+                model_dir="canvas/predictors/eigen/models/hotel/model_best.pth"
+                cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-hotel.json"
             elif(dataset=='Univ'):
-                model_dir="src/canvas/predictors/eigen/models/uni/model_best.pth"
-                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-uni.json"
+                model_dir="canvas/predictors/eigen/models/uni/model_best.pth"
+                cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-uni.json"
             elif(dataset=='Zara01'):
-                model_dir="src/canvas/predictors/eigen/models/zara01/model_best.pth"
+                model_dir="canvas/predictors/eigen/models/zara01/model_best.pth"
                 cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara01.json"
             elif(dataset=='Zara02'):
-                model_dir="src/canvas/predictors/eigen/models/zara02/model_best.pth"
+                model_dir="canvas/predictors/eigen/models/zara02/model_best.pth"
                 cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara02.json"
             elif(dataset=='Lobby'):
-                model_dir="src/canvas/predictors/eigen/models/lobby_data/model_best.pth"
-                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json"
+                model_dir="canvas/predictors/eigen/models/lobby_data/model_best.pth"
+                cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json"
             else:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
@@ -111,29 +111,29 @@ class Predictors:
         elif name in ("koopcast","mdnkoopman","mdn_koopman"):
             # KoopCast predictor
             if(dataset=='ETH'):
-                k_path='src/canvas/predictors/koopcast/data/biwi_eth_koopman_K_1.npy'
-                cfg='src/canvas/predictors/koopcast/data/biwi_eth_cfg.json'
-                mdn_pt='src/canvas/predictors/koopcast/data/biwi_eth_mdn.pt'
+                k_path='canvas/predictors/koopcast/data/biwi_eth_koopman_K_1.npy'
+                cfg='canvas/predictors/koopcast/data/biwi_eth_cfg.json'
+                mdn_pt='canvas/predictors/koopcast/data/biwi_eth_mdn.pt'
             elif(dataset=='Hotel'):
-                k_path='src/canvas/predictors/koopcast/data/biwi_hotel_koopman_K_1.npy'
-                cfg='src/canvas/predictors/koopcast/data/biwi_hotel_cfg.json'
-                mdn_pt='src/canvas/predictors/koopcast/data/biwi_hotel_mdn.pt'
+                k_path='canvas/predictors/koopcast/data/biwi_hotel_koopman_K_1.npy'
+                cfg='canvas/predictors/koopcast/data/biwi_hotel_cfg.json'
+                mdn_pt='canvas/predictors/koopcast/data/biwi_hotel_mdn.pt'
             elif(dataset=='Univ'):
-                k_path='src/canvas/predictors/koopcast/data/univ_koopman_K_1.npy'
-                cfg='src/canvas/predictors/koopcast/data/univ_cfg.json'
-                mdn_pt='src/canvas/predictors/koopcast/data/univ_mdn.pt'
+                k_path='canvas/predictors/koopcast/data/univ_koopman_K_1.npy'
+                cfg='canvas/predictors/koopcast/data/univ_cfg.json'
+                mdn_pt='canvas/predictors/koopcast/data/univ_mdn.pt'
             elif(dataset=='Zara01'):
-                k_path='src/canvas/predictors/koopcast/data/crowds_zara01_koopman_K_1.npy'
-                cfg='src/canvas/predictors/koopcast/data/crowds_zara01_cfg.json'
-                mdn_pt='src/canvas/predictors/koopcast/data/crowds_zara01_mdn.pt'
+                k_path='canvas/predictors/koopcast/data/crowds_zara01_koopman_K_1.npy'
+                cfg='canvas/predictors/koopcast/data/crowds_zara01_cfg.json'
+                mdn_pt='canvas/predictors/koopcast/data/crowds_zara01_mdn.pt'
             elif(dataset=='Zara02'):
-                k_path='src/canvas/predictors/koopcast/data/crowds_zara02_koopman_K_1.npy'
-                cfg='src/canvas/predictors/koopcast/data/crowds_zara02_cfg.json'
-                mdn_pt='src/canvas/predictors/koopcast/data/crowds_zara02_mdn.pt'
+                k_path='canvas/predictors/koopcast/data/crowds_zara02_koopman_K_1.npy'
+                cfg='canvas/predictors/koopcast/data/crowds_zara02_cfg.json'
+                mdn_pt='canvas/predictors/koopcast/data/crowds_zara02_mdn.pt'
             elif(dataset=='Lobby'):
-                k_path='src/canvas/predictors/koopcast/data/0_koopman_K_1.npy'
-                cfg='src/canvas/predictors/koopcast/data/0_cfg.json'
-                mdn_pt='src/canvas/predictors/koopcast/data/0_mdn.pt'
+                k_path='canvas/predictors/koopcast/data/0_koopman_K_1.npy'
+                cfg='canvas/predictors/koopcast/data/0_cfg.json'
+                mdn_pt='canvas/predictors/koopcast/data/0_mdn.pt'
             else:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "

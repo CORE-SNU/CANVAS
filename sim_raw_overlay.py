@@ -38,8 +38,9 @@ DATASET_TO_H_FILE = {
     "Univ": "univ.txt",
 }
 
-FRAMES_ROOT = _DATA_DIR+"/src/canvas/assets/final/frames"
-HZIP_PATH = _DATA_DIR+"/src/canvas/assets/homographies"
+# absolute paths
+FRAMES_ROOT = '/media/sju5379/F6340D35340CF9FF/euped_assets/frames'
+HZIP_PATH = '/home/sju5379/jaeuk/research/robotics/ECP-MPC/assets/homographies'
 
 def find_frames_dir(asset_dir: str, dataset: str) -> str:
     #frames_root = os.path.join(asset_dir, "frames")

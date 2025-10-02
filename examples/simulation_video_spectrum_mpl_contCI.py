@@ -6,7 +6,7 @@ import pathlib
 import os
 
 import sys
-_DATA_DIR = os.path.dirname(__file__)
+_DATA_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(_DATA_DIR)
 from canvas.datasets import get_dataset_spec, _load_background_image
 from canvas import Environment, SamplingBasedMPC, \
@@ -187,7 +187,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         npy_path = os.path.join(datasets_dir, fname_map[dataset])
 
         # iteration output dir for viz
-        iter_out_dir = pathlib.Path("viz") / f"iter_{times+1:03d}"
+        iter_out_dir = pathlib.Path("../viz") / f"iter_{times+1:03d}"
         iter_out_dir.mkdir(parents=True, exist_ok=True)
 
         environment = Environment(
