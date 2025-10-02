@@ -10,7 +10,8 @@ import sys
 _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
 from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, Box, GridMPC, \
+from src.canvas.controllers.controller import controllers
+from src.canvas import Environment, Box, \
     AdaptiveConformalPredictionModule, Predictors,\
         CompetencyIndex, Predictor_CI, region_to_box,dynamic_observation_filter
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv,save_frame_painted_then_mpl
@@ -58,24 +59,64 @@ for region in regions:
 # -----------------------------
 # Main
 # -----------------------------
-def main(start_x, start_y, dt, goal_x, goal_y, num_iter, max_ped 
-         dataset, predictor, controller, 
-         video_fps, save_video, frame_offset, extracted_fps, output_fps):
-    # Simulation rates (usually, 0.1)
-    dt = dt 
- 
-    persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
-
+def main(dataset, predictor, controller, 
+         prediction_len, history_len, start_x, start_y, dt, goal_x, goal_y, max_ped, t_begin, t_end,
+         num_iter, video_fps, save_video, frame_offset, extracted_fps, output_fps):
+    
     # Predictor horizon
-    prediction_len = 12
-    history_len = 8
-
+    prediction_len = prediction_len
+    history_len = history_len
+    # Simulation period
+    dt = dt 
+    # Choose predictor
+    obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')                                    # Trajectron++ predictor
     # Unified R* (kept for future score/CI; not used in controller)
     rstar = 0.5
+    # CI Instance
+    ci_traj     = CompetencyIndex(case="traj",      r_star=rstar, return_type="series")
+    ci_ctrl     = CompetencyIndex(case="control",   r_star=rstar, return_type="series")
+    ci_obj      = CompetencyIndex(case="obj",       r_star=rstar)            # scalar
+    ci_ctrlcost = CompetencyIndex(case="ctrl_cost", r_star=rstar)            # scalar
+    # Environment setting
+    t_begin = t_begin # time step to begin environment in dataset
+    t_end   = t_end   # time step to end environment in dataset
+    dataset = dataset
+    datasets_dir = os.path.join(_DATA_DIR, "src", "canvas", "datasets")
+    fname_map = {
+        "Lobby":  "0.npy",
+        "ETH":    "biwi_eth.npy",
+        "Hotel":  "biwi_hotel.npy",
+        "Zara01": "crowds_zara01.npy",
+        "Zara02": "crowds_zara02.npy",
+        "Univ":   "students003.npy",
+    }
+    npy_path = os.path.join(datasets_dir, fname_map[dataset])
+    init_robot_pose = np.array([start_x, start_y, np.pi / 2.]) # Start position for control test
+    goal = np.array([goal_x, goal_y]) # Goal position for control test
+    env = Environment(
+            filepath=npy_path,
+            dt=dt,
+            init_robot_pose=init_robot_pose,
+            t_begin=t_begin,
+            t_end=t_end
+        )
+    # CP module setting (use ACP)
+    max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1) # Maximum interval length setting
+    offline_calibration_set = {i: [] for i in range(prediction_len)}
+    cp_module = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
+                                                      step_size=0.05,
+                                                      n_scores=prediction_len,
+                                                      max_interval_lengths=max_interval_lengths,
+                                                      sample_size=20,
+                                                      offline_calibration_set=offline_calibration_set)
+    # Choose controller for control test
+    controller = controllers(chosen_controller=controller,prediction_len=prediction_len,dt=dt)
+    
+    persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
 
-    # -----------------------------
+    
+
     # GLOBAL BUFFERS (logging)
-    # -----------------------------
     buffer_collision_rate = []
     buffer_infeasible_rate = []
     buffer_avg_minimal_cost = []
@@ -94,11 +135,7 @@ def main(start_x, start_y, dt, goal_x, goal_y, num_iter, max_ped
     buffer_ci_obj           = []  # list[float],      CI of objective error (scalar)
     buffer_ci_ctrl_cost     = []  # list[float],      CI of control-cost error (scalar)
 
-    # CI Instance
-    ci_traj     = CompetencyIndex(case="traj",      r_star=rstar, return_type="series")
-    ci_ctrl     = CompetencyIndex(case="control",   r_star=rstar, return_type="series")
-    ci_obj      = CompetencyIndex(case="obj",       r_star=rstar)            # scalar
-    ci_ctrlcost = CompetencyIndex(case="ctrl_cost", r_star=rstar)            # scalar
+    
 
     for times in range(num_iter):
         print("==================================")
@@ -127,28 +164,14 @@ def main(start_x, start_y, dt, goal_x, goal_y, num_iter, max_ped
         buffer_terminal = []
         buffer_control = []
 
-        goal = np.array([goal_x, goal_y])
-
         spec = get_dataset_spec(dataset)
         bg_img = _load_background_image(spec.bg.path, spec.bg.rotate90)
         bg_extent = spec.bg.extent
         bg_alpha = spec.bg.alpha
 
-        # ---- Choose predictor ----
-        #data_dir = "/home/snowhan1021/tools_paper/CANavi/prediction/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
-        obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')                                    # Trajectron++ predictor
-
-        controller = GridMPC(n_steps=prediction_len, dt=dt)
-
         # ---- CP module (updated once per frame) ----
-        max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1)
-        offline_calibration_set = {i: [] for i in range(prediction_len)}
-        cp_module = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
-                                                      step_size=0.05,
-                                                      n_scores=prediction_len,
-                                                      max_interval_lengths=max_interval_lengths,
-                                                      sample_size=20,
-                                                      offline_calibration_set=offline_calibration_set)
+        
+        
         cp_module_gt = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
                                                       step_size=0.05,
                                                       n_scores=prediction_len,
@@ -157,35 +180,14 @@ def main(start_x, start_y, dt, goal_x, goal_y, num_iter, max_ped
                                                       offline_calibration_set=offline_calibration_set)
 
         begin = time.time()
-        init_robot_pose = np.array([0, 0, np.pi / 2.])  # Initial robot position setting
-        t_begin = 40
-        t_end = 2000
         buffer_vel = []
         done = False
-
-        datasets_dir = os.path.join(_DATA_DIR, "src", "canvas", "datasets")
-        fname_map = {
-            "Lobby":  "0.npy",
-            "ETH":    "biwi_eth.npy",
-            "Hotel":  "biwi_hotel.npy",
-            "Zara01": "crowds_zara01.npy",
-            "Zara02": "crowds_zara02.npy",
-            "Univ":   "students003.npy",
-        }
-        npy_path = os.path.join(datasets_dir, fname_map[dataset])
 
         # iteration output dir for viz
         iter_out_dir = pathlib.Path("viz") / f"iter_{times+1:03d}"
         iter_out_dir.mkdir(parents=True, exist_ok=True)
 
-        environment = Environment(
-            filepath=npy_path,
-            dt=dt,
-            init_robot_pose=init_robot_pose,
-            t_begin=t_begin,
-            t_end=t_end
-        )
-        position_x, position_y, orientation_z = environment.reset()
+        position_x, position_y, orientation_z = env.reset()
 
         video_writer = None
         video_path = iter_out_dir / f"sim_iter_{times+1:03d}_mpl.mp4"
