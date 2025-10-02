@@ -81,16 +81,27 @@ You can run the simulation with "simulation.py" with some dedicated variables
     * Zara02
     * Lobby
 * --predictor : Select the predictor (default : linear)
-    * linear (Linear predictor)
-    * gp (GP predictor)
-    * eigen (EigenTrajectory)
-    * traj (Trajectron++)
-    * koopcast (KoopCast)
+    * **Linear predictor** `linear`
+    * **Gaussian Process predictor** `gp`
+    * **[EigenTrajectory][eigentraj-link]** `eigen`
+    * **[Trajectron++][trajectronpp-link]** `traj`
+    * **[Social-STGCNN][socialstgcnn-link]** `socialstgcnn`
+    * **[Social-VAE][socialvae-link]** `socialvae`
+    * **[KoopCast][koopcast-link]** `koopcast` 
 * --save_video : Save the result to video (default : False)
 * --video_fps : Configure FPS for saving video. It is recommended to fit with 'dt' (default : 10.0)
 
 ## To-do-list
-- [ ] MPPI implementation
+- [x] MPPI implementation
+- [ ] MPPI refinement (parameters, action constraints, $\delta u$)
 - [ ] ECP-MPC migration
-- [ ] visualization
-- [ ] benchmark tests
+- [ ] visualization: direction-indicators, complete pedestrian histories, robot figure, linewidth
+- [ ] benchmark tests: training in `SNU-ASRI`
+- [ ] OOD definition & evaluation
+- [ ] intuitive scenarios
+
+[trajectronpp-link]: https://github.com/StanfordASL/Trajectron-plus-plus
+[eigentraj-link]: https://github.com/InhwanBae/EigenTrajectory
+[socialstgcnn-link]: https://github.com/abduallahmohamed/Social-STGCNN
+[socialvae-link]: https://github.com/xupei0610/SocialVAE
+[koopcast-link]: https://github.com/Koopcast/Koopcast
