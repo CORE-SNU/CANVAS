@@ -4,21 +4,16 @@ import numpy as np
 import cv2
 import pathlib
 import os
-import subprocess
-import random
-import pickle
-import csv
 
 import sys
 _DATA_DIR = os.path.dirname(__file__)
+
 sys.path.append(_DATA_DIR)
-from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, Box, GridMPC, \
-    AdaptiveConformalPredictionModule, Predictors,\
-        CompetencyIndex, Predictor_CI, region_to_box,dynamic_observation_filter
-from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv,save_frame_painted_then_mpl
-from matplotlib.patches import Circle, Polygon
-from matplotlib.lines import Line2D
+from canvas.datasets import get_dataset_spec, _load_background_image
+from canvas import Environment, Box, GridMPC, \
+    AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, \
+    save_frame_png_spectrum_robot
 from math import radians, cos, sin
 from sim_raw_overlay import RawVideoOverlay
 
@@ -70,6 +65,35 @@ for region in regions:
     )
     persistent_static_boxes.append(box)
 '''
+def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e-3) -> Box:
+    xmin, xmax = region["xmin"], region["xmax"]
+    ymin, ymax = region["ymin"], region["ymax"]
+    x_center = (xmin + xmax) / 2.0
+    y_center = (ymin + ymax) / 2.0
+    w = xmax - xmin
+    h = ymax - ymin
+    deg = float(region.get("deg", default_deg))
+    rad = radians(deg)
+    
+    corners = np.array([
+        [-w/2, -h/2],
+        [ w/2, -h/2],
+        [ w/2,  h/2],
+        [-w/2,  h/2],
+    ], dtype=float)
+    
+    c, s = cos(rad), sin(rad)
+    R = np.array([[c, -s],
+                  [s,  c]], dtype=float)
+    rot_corners = (corners @ R.T) + np.array([x_center, y_center])
+    return Box(
+        x=x_center, y=y_center, w=w, h=h,
+        deg=deg, rad=rad, area=w*h,
+        vertices=rot_corners,
+        resolution=resolution,
+        pos=np.array([x_center, y_center], dtype=float)
+    )
+
 
 # -----------------------------
 # Main
@@ -205,10 +229,10 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         position_x, position_y, orientation_z = environment.reset()
 
         video_writer = None
-        video_path = iter_out_dir / f"sim_iter_{times+1:03d}_mpl.mp4"
+        video_path = iter_out_dir / f"sim_iter_{times+1:03d}_head_robot.mp4"
 
         overlay_result = None
-        if overlay:
+        if overlay and dataset.lower() != "lobby":
             out_mp4 = iter_out_dir / f"sim_iter_{times+1:03d}_raw_overlay.mp4"
             overlay_result = RawVideoOverlay(
                 dataset=dataset,
@@ -234,18 +258,48 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
             # Filter valid histories and GT futures (finite & correct shape)
             valid_obs = {}
             valid_obs_future_true = {}
+            if isinstance(observation, dict):
+                for pid, traj in observation.items():
+                    # history
+                    try:
+                        arr_hist = np.asarray(traj, dtype=np.float64)
+                    except (TypeError, ValueError):
+                        continue
+                    if not (arr_hist.ndim == 2 and arr_hist.shape[0] == 8 and arr_hist.shape[1] >= 2 and np.isfinite(arr_hist[:, :2]).all()):
+                        continue
+                    valid_obs[pid] = arr_hist
 
-            valid_obs,valid_obs_future_true=dynamic_observation_filter(observation, position_x, position_y, prediction_len,observation_future_true,max_ped)
-        
+                    # GT future (kept for viz & later scoring; not used by controller here)
+                    fut = observation_future_true.get(pid, None) if isinstance(observation_future_true, dict) else None
+                    if fut is None:
+                        continue
+                    arr_fut = np.asarray(fut, dtype=np.float64)
+                    if not (arr_hist.ndim == 2 and arr_hist.shape[0] == 8 and arr_hist.shape[1] >= 2 and np.isfinite(arr_hist[:, :2]).all()):
+                        continue
+                    valid_obs_future_true[pid] = arr_fut[:prediction_len, :2]
+                    if valid_obs.__sizeof__() >= max_ped:
+                        break  # limit max pedestrians to max_ped
+
+            # --------- Simple collision check (proximity to last history point) ---------
+            dynamic_obs = {}
+            if valid_obs:
+                dynamic_obs = valid_obs
+                initial_positions = np.array([traj[-1, :2] for traj in dynamic_obs.values()])
+                robot_pos = np.array([position_x, position_y])
+                distances = np.sqrt(np.sum((initial_positions - robot_pos) ** 2, axis=1))
+                if np.any(distances <= 0.7):
+                    print("Collision!")
+                    collision_count += int(np.sum(distances <= 0.7))
+
             # --------- Predictor (once per frame) ---------
             pred_start = time.time()
-            prediction_res = obj_predictor(valid_obs if valid_obs else {})
+            prediction_res = obj_predictor(dynamic_obs if dynamic_obs else {})
             pred_time = time.time() - pred_start
             buffer_prediction_times.append(pred_time)
 
             # --------- CP update (once per frame) ---------
-            confidence_intervals = cp_module.update(valid_obs, prediction_res if isinstance(prediction_res, dict) else {})
-            confidence_intervals_gt=cp_module_gt.update(valid_obs, valid_obs_future_true if isinstance(valid_obs_future_true, dict) else {})
+            confidence_intervals = cp_module.update(dynamic_obs, prediction_res if isinstance(prediction_res, dict) else {})
+            confidence_intervals_gt=cp_module_gt.update(dynamic_obs, valid_obs_future_true if isinstance(valid_obs_future_true, dict) else {})
 
             # --------- Controller (once per frame, with predictions) ---------
             velocity, info, minimum, intermediate, terminal, control, minimal = controller(
@@ -346,8 +400,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
 
             # --------- Visualization (CI labels disabled by default) ---------
             try:
-                bg_img = _load_background_image(overlay_result._frame_path_for_current(), spec.bg.rotate90)
-                frame_png=save_frame_painted_then_mpl(
+                if dataset.lower() == "lobby":
+                    frame_png=save_frame_png_spectrum_robot(
                     outdir=iter_out_dir,
                     frame_idx=frame,
                     static_boxes=persistent_static_boxes,
@@ -360,8 +414,27 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     r_star=rstar,
                     annotate_ci=True,  # keep False here; enable later if needed
                     background_image=bg_img,
-                    homography_H=overlay_result.H,
+                    background_extent=bg_extent,
+                    background_alpha=bg_alpha
                 )
+                else:
+                    bg_img = _load_background_image(overlay_result._frame_path_for_current(), spec.bg.rotate90)
+                    frame_png=save_frame_png_spectrum_robot(
+                        outdir=iter_out_dir,
+                        frame_idx=frame,
+                        static_boxes=persistent_static_boxes,
+                        robot_xy=(position_x, position_y),
+                        robot_traj_xy=(buffer_pos_x, buffer_pos_y),
+                        goal_xy=goal,
+                        valid_obs=valid_obs if valid_obs else {},
+                        valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
+                        prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
+                        r_star=rstar,
+                        annotate_ci=True,  # keep False here; enable later if needed
+                        background_image=bg_img,
+                        background_extent=bg_extent,
+                        background_alpha=bg_alpha
+                    )
                 if save_video:
                     img = cv2.imread(frame_png)
                     if img is not None:
@@ -529,7 +602,7 @@ if __name__ == "__main__":
     parser.add_argument('--goal_y', type=float, default=0.2)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
     parser.add_argument('--r_star', type=float, default=0.5)
-    parser.add_argument('--dataset', type=str, default="Zara01")
+    parser.add_argument('--dataset', type=str, default="Lobby")
     parser.add_argument('--predictor', type=str, default="traj")
     parser.add_argument('--save_video', type=bool, default=True)
     parser.add_argument('--video_fps', type=float, default=2.5)
@@ -547,6 +620,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,
-         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps, max_ped=args.max_ped)
+         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps,max_ped=args.max_ped)
 
 

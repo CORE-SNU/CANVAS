@@ -4,22 +4,16 @@ import numpy as np
 import cv2
 import pathlib
 import os
-import subprocess
-import random
-import pickle
-import csv
 
 import sys
 _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
-from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, Box, SamplingBasedMPC, \
+from canvas.datasets import get_dataset_spec, _load_background_image
+from canvas import Environment, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors,\
         CompetencyIndex, Predictor_CI, region_to_box,dynamic_observation_filter
-from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv,save_frame_mpl_traj
-from matplotlib.patches import Circle, Polygon
-from matplotlib.lines import Line2D
-from math import radians, cos, sin
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, \
+    save_frame_painted_then_mpl
 from sim_raw_overlay import RawVideoOverlay
 
 """
@@ -75,7 +69,7 @@ for region in regions:
 # Main
 # -----------------------------
 def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video,
-         overlay, frame_offset, extracted_fps, output_fps,max_ped,cont_CI,CI_t):
+         overlay, frame_offset, extracted_fps, output_fps,max_ped):
     # Simulation rates
     #dt = 0.10
     dt = 1/2.5
@@ -123,7 +117,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         frame = 0
         infeasible_count = 0
         infeasible_streak = 0
-        max_infeasible_streak = 20
+        max_infeasible_streak = 10
         collision_count = 0
         is_success = False
 
@@ -134,7 +128,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         it_ci_ctrl_local_rows = [] # rows: {frame, step, x, y, ci}       (robot-centered local)
         it_ci_obj         = []   # list[float]
         it_ci_ctrl_cost   = []   # list[float]
-        ci_data=[]
+
         buffer_timestamp = []
         buffer_infeasibility = []
         minimum_cost = []
@@ -155,8 +149,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         #data_dir = "/home/snowhan1021/tools_paper/CANavi/prediction/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
         obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')                                    # Trajectron++ predictor
 
-        controller = SamplingBasedMPC(n_steps=prediction_len, dt=dt)
-        controller_gt = SamplingBasedMPC(n_steps=prediction_len, dt=dt)  # for GT/oracle control input
+        controller = GridMPC(n_steps=prediction_len, dt=dt)
 
         # ---- CP module (updated once per frame) ----
         max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1)
@@ -258,12 +251,11 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                 boxes=persistent_static_boxes,
                 predictions=prediction_res if isinstance(prediction_res, dict) else {},
                 confidence_intervals=confidence_intervals,
-                goal=goal,
-                history=valid_obs
+                goal=goal
             )
 
             # For GT(Oracle based) : no status update here, just for get controller input for GT
-            velocity_gt, info_gt, minimum_gt, intermediate_gt, terminal_gt, control_gt, minimal_gt = controller_gt(
+            velocity_gt, info_gt, minimum_gt, intermediate_gt, terminal_gt, control_gt, minimal_gt = controller(
                 pos_x=position_x,
                 pos_y=position_y,
                 orientation_z=orientation_z,
@@ -272,8 +264,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                 boxes=persistent_static_boxes,
                 predictions=valid_obs_future_true if isinstance(valid_obs_future_true, dict) else {},
                 confidence_intervals=confidence_intervals_gt,
-                goal=goal,
-                history=valid_obs
+                goal=goal
             )
             prediction_competency=Predictor_CI()
             prediction_comptency_score=prediction_competency.CI_default(confidence_intervals)
@@ -349,16 +340,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
 
             # --------- Visualization (CI labels disabled by default) ---------
             try:
-                if cont_CI=="traj":
-                    ci_data.append(ci_traj_series[CI_t])
-                elif cont_CI=="control":
-                    ci_data.append(np.mean(ci_ctrl_series))
-                elif cont_CI=="objective":
-                    ci_data.append(ci_obj_val)
-                elif cont_CI=="ctrl_cost":
-                    ci_data.append(ci_ctrlcost_val)
                 bg_img = _load_background_image(overlay_result._frame_path_for_current(), spec.bg.rotate90)
-                frame_png=save_frame_mpl_traj(
+                frame_png=save_frame_painted_then_mpl(
                     outdir=iter_out_dir,
                     frame_idx=frame,
                     static_boxes=persistent_static_boxes,
@@ -369,11 +352,9 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    annotate_ci=False,  # keep False here; enable later if needed
+                    annotate_ci=True,  # keep False here; enable later if needed
                     background_image=bg_img,
                     homography_H=overlay_result.H,
-                    cbar_label ='CI Control '+f'({cont_CI})',
-                    ci_data=ci_data,
                 )
                 if save_video:
                     img = cv2.imread(frame_png)
@@ -385,7 +366,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                         video_writer.write(img)
             except Exception as e:
                 print(f"[WARN] viz save failed at frame {frame}: {e}")
-            print(np.mean(ci_traj_series),np.mean(ci_ctrl_series),ci_obj_val,ci_ctrlcost_val )
+
             if overlay_result is not None:
                 overlay_result.step(valid_obs, valid_obs_future_true, prediction_res)
             
@@ -555,14 +536,11 @@ if __name__ == "__main__":
                         help="FPS used by video_parser.py to extract frames")
     parser.add_argument("--output_fps", type=float, default=10.0,
                         help="Output MP4 FPS; defaults to extracted_fps")
-    parser.add_argument("--max_ped", type=float, default=3.0,
+    parser.add_argument("--max_ped", type=float, default=4.0,
                     help="Max pedestrians to consider (others ignored)")
-    parser.add_argument("--cont_CI", type=str, default="traj",
-                    help="Continuous CI type: traj, control, obj, ctrl_cost to map on video.")
-    parser.add_argument("--CI_t", type=int, default=3,
-                    help="CI to use for pred.")
     args = parser.parse_args()
+
     main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,
-         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps, max_ped=args.max_ped,cont_CI=args.cont_CI,CI_t=args.CI_t)
+         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps, max_ped=args.max_ped)
 
 

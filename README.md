@@ -2,8 +2,8 @@
 Below is a sample run code for the bare minimum imports required to call the predictors and competency index implemented into our code.
 
 ```python
-from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, GridMPC, AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
+from canvas.datasets import get_dataset_spec, _load_background_image
+from canvas import Environment, GridMPC, AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
 
 # setup: dataset, predictor, simulation environment, controller, competency index
 prediction_len = 12

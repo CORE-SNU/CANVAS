@@ -3,18 +3,16 @@ import os
 import csv
 import numpy as np
 import pathlib
-from typing import Dict, Tuple, Optional, Iterable
-from src.canvas import Box
+from typing import Dict, Tuple, Optional
 
 # --- Matplotlib (headless) ---
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Polygon, Rectangle
+from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
 from matplotlib.collections import LineCollection
 import matplotlib as mpl
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.cm as cm
 import cv2
 

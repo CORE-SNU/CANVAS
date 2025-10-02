@@ -5,20 +5,16 @@ import cv2
 import pathlib
 import os
 import subprocess
-import random
-import pickle
-import csv
 
 import sys
 _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
-from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, Box, GridMPC, \
+from canvas.datasets import get_dataset_spec, _load_background_image
+from canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
-from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
-from matplotlib.patches import Circle, Polygon
-from matplotlib.lines import Line2D
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, \
+    save_frame_png_spectrum_video
 from math import radians, cos, sin
 from sim_raw_overlay import RawVideoOverlay
 
@@ -99,12 +95,88 @@ def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e
         pos=np.array([x_center, y_center], dtype=float)
     )
 
+# -----------------------------
+# Helpers for weak-point clipping
+# -----------------------------
+def _score_series(arr: np.ndarray, mode: str = "mean") -> float:
+    """Return a scalar CI score for a per-step series; lower = weaker."""
+    if arr is None:
+        return np.nan
+    a = np.asarray(arr, dtype=float).ravel()
+    if a.size == 0:
+        return np.nan
+    if mode == "mean":
+        return float(np.nanmean(a))  # ignores NaNs; raises if all-NaN later in selection
+    else:
+        return float(a[-1])
+
+def _pick_weak_frame(ci_control: str,
+                     it_ci_traj_series, it_ci_ctrl_series,
+                     it_ci_obj, it_ci_ctrl_cost):
+    """
+    Returns (weak_idx:int | None, weak_score:float | None)
+    Uses np.nanargmin to pick the weakest frame; ignores NaNs (raises if all-NaN).
+    """
+    F = max(len(it_ci_traj_series), len(it_ci_ctrl_series),
+            len(it_ci_obj), len(it_ci_ctrl_cost))
+    scores = np.full(F, np.nan, dtype=float)
+
+    if ci_control == "ci_traj":           # average over horizon
+        for f, s in enumerate(it_ci_traj_series):
+            scores[f] = _score_series(s, "mean")
+    elif ci_control == "ci_traj_final":   # final step only
+        for f, s in enumerate(it_ci_traj_series):
+            scores[f] = _score_series(s, "final")
+    elif ci_control == "ci_ctrl":
+        for f, s in enumerate(it_ci_ctrl_series):
+            scores[f] = _score_series(s, "mean")
+    elif ci_control == "ci_obj":
+        scores[:len(it_ci_obj)] = np.asarray(it_ci_obj, dtype=float)
+    elif ci_control == "ci_ctrl_cost":
+        scores[:len(it_ci_ctrl_cost)] = np.asarray(it_ci_ctrl_cost, dtype=float)
+    else:
+        # Fallback to traj mean if an unknown mode is passed
+        for f, s in enumerate(it_ci_traj_series):
+            scores[f] = _score_series(s, "mean")
+
+    try:
+        idx = int(np.nanargmin(scores))   # ignores NaNs; raises if all-NaN
+        return idx, float(scores[idx])
+    except Exception:
+        return None, None
+
+def _trim_video_ffmpeg(in_path: pathlib.Path,
+                       out_path: pathlib.Path,
+                       center_frame: int,
+                       fps: float,
+                       half_window_sec: float = 5.0):
+    if not in_path or not os.path.exists(str(in_path)):
+        return False
+
+    start_time = max(0.0, (center_frame / max(fps, 1e-6)) - 1.8*half_window_sec)
+    duration   = 2.0 * half_window_sec
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(in_path),
+        "-ss", f"{start_time:.3f}",
+        "-t",  f"{duration:.3f}",
+        "-avoid_negative_ts", "make_zero",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+        "-c:a", "copy",
+        str(out_path)
+    ]
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 # -----------------------------
 # Main
 # -----------------------------
 def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video,
-         overlay, frame_offset, extracted_fps, output_fps):
+         overlay, frame_offset, extracted_fps, output_fps, ci_control):
     # Simulation rates
     #dt = 0.10
     dt = 1/2.5
@@ -157,12 +229,12 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         is_success = False
 
         # --- per-iteration CI buffers (for saving to csv file) ---
-        it_ci_traj_series = []   # list[np.ndarray]  (T,) per frame
-        it_ci_ctrl_series = []   # list[np.ndarray]  (T,) per frame
-        it_ci_traj_pos_rows = []   # rows: {frame, pid, step, x, y, ci}  (global pedestrian positions)
-        it_ci_ctrl_local_rows = [] # rows: {frame, step, x, y, ci}       (robot-centered local)
-        it_ci_obj         = []   # list[float]
-        it_ci_ctrl_cost   = []   # list[float]
+        it_ci_traj_series = []     # list[np.ndarray]  (T,) per frame
+        it_ci_ctrl_series = []     # list[np.ndarray]  (T,) per frame
+        it_ci_traj_pos_rows = []   # rows: {frame, pid, step, x, y, ci}
+        it_ci_ctrl_local_rows = [] # rows: {frame, step, x, y, ci}
+        it_ci_obj         = []     # list[float]
+        it_ci_ctrl_cost   = []     # list[float]
 
         buffer_timestamp = []
         buffer_infeasibility = []
@@ -181,8 +253,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         bg_alpha = spec.bg.alpha
 
         # ---- Choose predictor ----
-        #data_dir = "/home/snowhan1021/tools_paper/CANavi/prediction/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
-        obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')                                    # Trajectron++ predictor
+        obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')
 
         controller = GridMPC(n_steps=prediction_len, dt=dt)
 
@@ -234,11 +305,13 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         position_x, position_y, orientation_z = environment.reset()
 
         video_writer = None
-        video_path = iter_out_dir / f"sim_iter_{times+1:03d}.mp4"
+        video_path = iter_out_dir / f"sim_iter_{times+1:03d}_simplicity.mp4"
 
         overlay_result = None
+        overlay_out_mp4 = None  # remember overlay mp4 path for trimming later
         if overlay:
             out_mp4 = iter_out_dir / f"sim_iter_{times+1:03d}_raw_overlay.mp4"
+            overlay_out_mp4 = out_mp4
             overlay_result = RawVideoOverlay(
                 dataset=dataset,
                 out_video_path=str(out_mp4),
@@ -278,7 +351,10 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     fut = observation_future_true.get(pid, None) if isinstance(observation_future_true, dict) else None
                     if fut is None:
                         continue
-                    valid_obs_future_true[pid] = fut[:prediction_len, :2]
+                    arr_fut = np.asarray(fut, dtype=np.float64)
+                    if not (arr_fut.ndim == 2 and arr_fut.shape[1] >= 2 and arr_fut.shape[0] >= prediction_len and np.isfinite(arr_fut[:prediction_len, :2]).all()):
+                        continue
+                    valid_obs_future_true[pid] = arr_fut[:prediction_len, :2]
 
             # --------- Simple collision check (proximity to last history point) ---------
             dynamic_obs = {}
@@ -400,7 +476,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
 
             # --------- Visualization (CI labels disabled by default) ---------
             try:
-                frame_png=save_frame_png(
+                bg_img = _load_background_image(overlay_result._frame_path_for_current(), spec.bg.rotate90) if overlay_result is not None else bg_img
+                frame_png=save_frame_png_spectrum_video(
                     outdir=iter_out_dir,
                     frame_idx=frame,
                     static_boxes=persistent_static_boxes,
@@ -411,7 +488,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    annotate_ci=False,  # keep False here; enable later if needed
+                    annotate_ci=True,  # keep False here; enable later if needed
                     background_image=bg_img,
                     background_extent=bg_extent,
                     background_alpha=bg_alpha
@@ -475,21 +552,6 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
             position_x, position_y, orientation_z = robot_pose
             print(frame, position_x, position_y, orientation_z, cmd_linear_x, cmd_angular_z, time.time() - detect_time)
 
-            '''
-            # --- Per-frame CI printout ---
-            if ci_traj_series.size:
-                print(f"[frame {frame}] CI_traj  avg={np.nanmean(ci_traj_series):.3f}  final={ci_traj_series[-1]:.3f}")
-            else:
-                print(f"[frame {frame}] CI_traj  (empty)")
-
-            if ci_ctrl_series.size:
-                print(f"[frame {frame}] CI_ctrl  avg={np.nanmean(ci_ctrl_series):.3f}  final={ci_ctrl_series[-1]:.3f}")
-            else:
-                print(f"[frame {frame}] CI_ctrl  (empty)")
-
-            print(f"[frame {frame}] CI_obj={ci_obj_val:.3f}  CI_ctrl_cost={ci_ctrlcost_val:.3f}")
-            print(f"[frame {frame}] CI_Prediction  avg={prediction_comptency_score:.3f}")
-            '''
             # --------- Accumulate costs ---------
             minimum_cost.append(minimal)
             buffer_intermediate.append(intermediate)
@@ -499,27 +561,6 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
             frame += 1
             buffer_vel = velocity
 
-        '''
-        # ===== Write per-iteration CI CSV =====
-        ci_pos_csv_path = save_ci_traj_per_agent_csv(
-            iter_out_dir=iter_out_dir,
-            iteration_index=times + 1,
-            it_ci_traj_per_agent=it_ci_traj_per_agent,
-            prediction_len=prediction_len
-        )
-        print(f"[iter {times+1}] per-agent traj CI CSV saved to: {ci_pos_csv_path}")
-        
-        ci_csv_path = save_ci_iteration_csv(
-            iter_out_dir=iter_out_dir,
-            iteration_index=times + 1,
-            it_ci_traj_series=it_ci_traj_series,
-            it_ci_ctrl_series=it_ci_ctrl_series,
-            it_ci_obj=it_ci_obj,
-            it_ci_ctrl_cost=it_ci_ctrl_cost,
-            prediction_len=prediction_len
-        )
-        print(f"[iter {times+1}] CI CSV saved to: {ci_csv_path}")
-        '''
         # --- (d) heatmap-ready CSVs ---
         traj_pos_csv = save_ci_traj_positions_csv(
             iter_out_dir=iter_out_dir,
@@ -559,6 +600,38 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         if overlay_result is not None:
             overlay_result.close()
 
+        # === Auto-clip ±5s around weakest frame according to ci_control ===
+        weak_idx, weak_score = _pick_weak_frame(
+            ci_control=ci_control,
+            it_ci_traj_series=it_ci_traj_series,
+            it_ci_ctrl_series=it_ci_ctrl_series,
+            it_ci_obj=it_ci_obj,
+            it_ci_ctrl_cost=it_ci_ctrl_cost
+        )
+
+        if weak_idx is not None:
+            print(f"[iter {times+1}] Weak frame (mode={ci_control}) -> frame={weak_idx}, score={weak_score:.3f}")
+
+            # Head render (VideoWriter) — uses video_fps
+            if save_video and os.path.exists(str(video_path)):
+                out_clip = video_path.with_name(
+                    f"{video_path.stem}__weak_{ci_control}_f{weak_idx:05d}.mp4"
+                )
+                ok = _trim_video_ffmpeg(video_path, out_clip, center_frame=weak_idx, fps=video_fps, half_window_sec=5.0)
+                if ok:
+                    print(f"[iter {times+1}] wrote weak-clip (head): {out_clip}")
+
+            # Raw overlay — uses output_fps
+            if overlay_out_mp4 is not None and os.path.exists(str(overlay_out_mp4)):
+                out_clip2 = overlay_out_mp4.with_name(
+                    f"{overlay_out_mp4.stem}__weak_{ci_control}_f{weak_idx:05d}.mp4"
+                )
+                ok2 = _trim_video_ffmpeg(overlay_out_mp4, out_clip2, center_frame=weak_idx, fps=output_fps, half_window_sec=5.0)
+                if ok2:
+                    print(f"[iter {times+1}] wrote weak-clip (overlay): {out_clip2}")
+        else:
+            print(f"[iter {times+1}] No valid CI scores to pick weak frame for mode={ci_control}.")
+
     # Optionally return aggregated stats
     return {
         'collision_rate': buffer_collision_rate,
@@ -596,9 +669,12 @@ if __name__ == "__main__":
                         help="FPS used by video_parser.py to extract frames")
     parser.add_argument("--output_fps", type=float, default=10.0,
                         help="Output MP4 FPS; defaults to extracted_fps")
+    parser.add_argument("--CI_control", type=str, default="ci_traj",
+                        help="Weak-point criterion: ci_traj | ci_traj_final | ci_ctrl | ci_obj | ci_ctrl_cost")
     args = parser.parse_args()
 
-    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,
-         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps)
-
-
+    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor,
+         video_fps=args.video_fps, save_video=args.save_video,
+         overlay=args.overlay, frame_offset=args.frame_offset,
+         extracted_fps=args.extracted_fps, output_fps=args.output_fps,
+         ci_control=args.CI_control)

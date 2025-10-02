@@ -4,22 +4,18 @@ import numpy as np
 import cv2
 import pathlib
 import os
-import subprocess
-import random
-import pickle
-import csv
 
 import sys
 _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
-from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, Box, GridMPC, \
+from canvas.datasets import get_dataset_spec, _load_background_image
+from canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
-from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv, save_frame_png
-from matplotlib.patches import Circle, Polygon
-from matplotlib.lines import Line2D
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, \
+    save_frame_png_spectrum_video
 from math import radians, cos, sin
+from sim_raw_overlay import RawVideoOverlay
 
 """
 Simulation pipeline (per frame):
@@ -102,9 +98,11 @@ def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e
 # -----------------------------
 # Main
 # -----------------------------
-def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video):
+def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video,
+         overlay, frame_offset, extracted_fps, output_fps):
     # Simulation rates
-    dt = 0.10
+    #dt = 0.10
+    dt = 1/2.5
 
     persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
 
@@ -149,7 +147,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         frame = 0
         infeasible_count = 0
         infeasible_streak = 0
-        max_infeasible_streak = 100
+        max_infeasible_streak = 10
         collision_count = 0
         is_success = False
 
@@ -200,7 +198,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                                                       offline_calibration_set=offline_calibration_set)
 
         begin = time.time()
-        init_robot_pose = np.array([1, 5, np.pi / 2.])  # Initial robot position setting
+        init_robot_pose = np.array([0, 0, np.pi / 2.])  # Initial robot position setting
         t_begin = 40
         t_end = 2000
         buffer_vel = []
@@ -231,7 +229,19 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         position_x, position_y, orientation_z = environment.reset()
 
         video_writer = None
-        video_path = iter_out_dir / f"sim_iter_{times+1:03d}.mp4"
+        video_path = iter_out_dir / f"sim_iter_{times+1:03d}_head.mp4"
+
+        overlay_result = None
+        if overlay:
+            out_mp4 = iter_out_dir / f"sim_iter_{times+1:03d}_raw_overlay.mp4"
+            overlay_result = RawVideoOverlay(
+                dataset=dataset,
+                out_video_path=str(out_mp4),
+                frame_offset=frame_offset,
+                sim_dt=dt,
+                extracted_fps=extracted_fps,
+                output_fps=output_fps
+            )
 
         while not done:
             detect_time = time.time()
@@ -263,7 +273,10 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     fut = observation_future_true.get(pid, None) if isinstance(observation_future_true, dict) else None
                     if fut is None:
                         continue
-                    valid_obs_future_true[pid] = fut[:prediction_len, :2]
+                    arr_fut = np.asarray(fut, dtype=np.float64)
+                    if not (arr_fut.ndim == 2 and arr_fut.shape[1] >= 2 and arr_fut.shape[0] >= prediction_len and np.isfinite(arr_fut[:prediction_len, :2]).all()):
+                        continue
+                    valid_obs_future_true[pid] = arr_fut[:prediction_len, :2]
 
             # --------- Simple collision check (proximity to last history point) ---------
             dynamic_obs = {}
@@ -385,7 +398,8 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
 
             # --------- Visualization (CI labels disabled by default) ---------
             try:
-                frame_png=save_frame_png(
+                bg_img = _load_background_image(overlay_result._frame_path_for_current(), spec.bg.rotate90)
+                frame_png=save_frame_png_spectrum_video(
                     outdir=iter_out_dir,
                     frame_idx=frame,
                     static_boxes=persistent_static_boxes,
@@ -396,7 +410,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    annotate_ci=False,  # keep False here; enable later if needed
+                    annotate_ci=True,  # keep False here; enable later if needed
                     background_image=bg_img,
                     background_extent=bg_extent,
                     background_alpha=bg_alpha
@@ -411,6 +425,9 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                         video_writer.write(img)
             except Exception as e:
                 print(f"[WARN] viz save failed at frame {frame}: {e}")
+
+            if overlay_result is not None:
+                overlay_result.step(valid_obs, valid_obs_future_true, prediction_res)
             
             # --------- Feasibility handling ---------
             buffer_infeasibility.append(info.get('feasible', True))
@@ -537,6 +554,9 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         if video_writer is not None:
             video_writer.release()
             print(f"[iter {times+1}] wrote video: {video_path}")
+        
+        if overlay_result is not None:
+            overlay_result.close()
 
     # Optionally return aggregated stats
     return {
@@ -562,12 +582,22 @@ if __name__ == "__main__":
     parser.add_argument('--goal_y', type=float, default=0.2)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
     parser.add_argument('--r_star', type=float, default=0.5)
-    parser.add_argument('--dataset', type=str, default="Lobby")
-    parser.add_argument('--predictor', type=str, default="linear")
-    parser.add_argument('--save_video', type=bool, default=False)
-    parser.add_argument('--video_fps', type=float, default=10.0)
+    parser.add_argument('--dataset', type=str, default="Zara01")
+    parser.add_argument('--predictor', type=str, default="SocialVAE")
+    parser.add_argument('--save_video', type=bool, default=True)
+    parser.add_argument('--video_fps', type=float, default=2.5)
+    #============================================================
+    parser.add_argument("--overlay", type=bool, default=True,
+                        help="Use homography to draw history/GT/prediction on extracted real frames")
+    parser.add_argument("--frame_offset", type=int, default=40,
+                        help="Align sim time to real frames (index shift)")
+    parser.add_argument("--extracted_fps", type=float, default=2.5,
+                        help="FPS used by video_parser.py to extract frames")
+    parser.add_argument("--output_fps", type=float, default=10.0,
+                        help="Output MP4 FPS; defaults to extracted_fps")
     args = parser.parse_args()
 
-    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video)
+    main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,
+         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps)
 
 

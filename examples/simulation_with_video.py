@@ -4,21 +4,15 @@ import numpy as np
 import cv2
 import pathlib
 import os
-import subprocess
-import random
-import pickle
-import csv
 
 import sys
 _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
-from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, Box, GridMPC, \
+from canvas.datasets import get_dataset_spec, _load_background_image
+from canvas import Environment, Box, GridMPC, \
     AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
-from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_ci_iteration_csv,save_frame_png_spectrum_robot
-from matplotlib.patches import Circle, Polygon
-from matplotlib.lines import Line2D
+from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_frame_png
 from math import radians, cos, sin
 from sim_raw_overlay import RawVideoOverlay
 
@@ -104,7 +98,7 @@ def region_to_box(region: dict, default_deg: float = 0.0, resolution: float = 1e
 # Main
 # -----------------------------
 def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_video,
-         overlay, frame_offset, extracted_fps, output_fps,max_ped):
+         overlay, frame_offset, extracted_fps, output_fps):
     # Simulation rates
     #dt = 0.10
     dt = 1/2.5
@@ -234,10 +228,10 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         position_x, position_y, orientation_z = environment.reset()
 
         video_writer = None
-        video_path = iter_out_dir / f"sim_iter_{times+1:03d}_head_robot.mp4"
+        video_path = iter_out_dir / f"sim_iter_{times+1:03d}.mp4"
 
         overlay_result = None
-        if overlay and dataset.lower() != "lobby":
+        if overlay:
             out_mp4 = iter_out_dir / f"sim_iter_{times+1:03d}_raw_overlay.mp4"
             overlay_result = RawVideoOverlay(
                 dataset=dataset,
@@ -278,12 +272,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     fut = observation_future_true.get(pid, None) if isinstance(observation_future_true, dict) else None
                     if fut is None:
                         continue
-                    arr_fut = np.asarray(fut, dtype=np.float64)
-                    if not (arr_hist.ndim == 2 and arr_hist.shape[0] == 8 and arr_hist.shape[1] >= 2 and np.isfinite(arr_hist[:, :2]).all()):
-                        continue
-                    valid_obs_future_true[pid] = arr_fut[:prediction_len, :2]
-                    if valid_obs.__sizeof__() >= max_ped:
-                        break  # limit max pedestrians to max_ped
+                    valid_obs_future_true[pid] = fut[:prediction_len, :2]
 
             # --------- Simple collision check (proximity to last history point) ---------
             dynamic_obs = {}
@@ -405,8 +394,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
 
             # --------- Visualization (CI labels disabled by default) ---------
             try:
-                if dataset.lower() == "lobby":
-                    frame_png=save_frame_png_spectrum_robot(
+                frame_png=save_frame_png(
                     outdir=iter_out_dir,
                     frame_idx=frame,
                     static_boxes=persistent_static_boxes,
@@ -417,29 +405,11 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
                     valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
                     prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
                     r_star=rstar,
-                    annotate_ci=True,  # keep False here; enable later if needed
+                    annotate_ci=False,  # keep False here; enable later if needed
                     background_image=bg_img,
                     background_extent=bg_extent,
                     background_alpha=bg_alpha
                 )
-                else:
-                    bg_img = _load_background_image(overlay_result._frame_path_for_current(), spec.bg.rotate90)
-                    frame_png=save_frame_png_spectrum_robot(
-                        outdir=iter_out_dir,
-                        frame_idx=frame,
-                        static_boxes=persistent_static_boxes,
-                        robot_xy=(position_x, position_y),
-                        robot_traj_xy=(buffer_pos_x, buffer_pos_y),
-                        goal_xy=goal,
-                        valid_obs=valid_obs if valid_obs else {},
-                        valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
-                        prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
-                        r_star=rstar,
-                        annotate_ci=True,  # keep False here; enable later if needed
-                        background_image=bg_img,
-                        background_extent=bg_extent,
-                        background_alpha=bg_alpha
-                    )
                 if save_video:
                     img = cv2.imread(frame_png)
                     if img is not None:
@@ -607,7 +577,7 @@ if __name__ == "__main__":
     parser.add_argument('--goal_y', type=float, default=0.2)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
     parser.add_argument('--r_star', type=float, default=0.5)
-    parser.add_argument('--dataset', type=str, default="Lobby")
+    parser.add_argument('--dataset', type=str, default="Zara01")
     parser.add_argument('--predictor', type=str, default="traj")
     parser.add_argument('--save_video', type=bool, default=True)
     parser.add_argument('--video_fps', type=float, default=2.5)
@@ -620,11 +590,9 @@ if __name__ == "__main__":
                         help="FPS used by video_parser.py to extract frames")
     parser.add_argument("--output_fps", type=float, default=10.0,
                         help="Output MP4 FPS; defaults to extracted_fps")
-    parser.add_argument("--max_ped", type=float, default=4.0,
-                    help="Max pedestrians to consider (others ignored)")
     args = parser.parse_args()
 
     main(args.goal_x, args.goal_y, args.num_iter, args.r_star, args.dataset, args.predictor, video_fps=args.video_fps, save_video=args.save_video,
-         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps,max_ped=args.max_ped)
+         overlay=args.overlay, frame_offset=args.frame_offset, extracted_fps=args.extracted_fps, output_fps=args.output_fps)
 
 
