@@ -175,7 +175,7 @@ def main(goal_x, goal_y, num_iter, r_star, dataset, predictor, video_fps, save_v
         buffer_vel = []
         done = False
 
-        datasets_dir = os.path.join(_DATA_DIR, "src", "canvas", "datasets")
+        datasets_dir = os.path.join(_DATA_DIR, "canvas", "datasets")
         fname_map = {
             "Lobby":  "0.npy",
             "ETH":    "biwi_eth.npy",

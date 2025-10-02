@@ -99,9 +99,14 @@ You can run the simulation with "main_program.py" with some dedicated variables
 - [ ] benchmark tests: training in `SNU-ASRI`
 - [ ] OOD definition & evaluation
 - [ ] intuitive scenarios
+- [ ] exclude `.npy` files from the repository; they are too large to keep inside the repository; need to be downloaded from an external source
 
 [trajectronpp-link]: https://github.com/StanfordASL/Trajectron-plus-plus
 [eigentraj-link]: https://github.com/InhwanBae/EigenTrajectory
 [socialstgcnn-link]: https://github.com/abduallahmohamed/Social-STGCNN
 [socialvae-link]: https://github.com/xupei0610/SocialVAE
 [koopcast-link]: https://github.com/Koopcast/Koopcast
+
+
+# Update Log
+[2025-10-02 19:45] move src/canvas to canvas; move all simulation*.py files into examples
