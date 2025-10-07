@@ -9,7 +9,7 @@ import sys
 _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
 from canvas.datasets import get_dataset_spec, _load_background_image
-from canvas import controllers
+from canvas.controllers.controller import controllers
 from canvas import Environment, AdaptiveConformalPredictionModule, Predictors,\
         CompetencyIndex, Predictor_CI, region_to_box,dynamic_observation_filter
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, \
