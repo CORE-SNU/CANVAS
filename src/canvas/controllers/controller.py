@@ -34,7 +34,7 @@ class controllers:
         else:
             raise ValueError(
                 f"Unknown controller '{chosen_controller}'. "
-                "Available options are 'conformal', 'grid', 'sampling', and 'ecp_mpc'."
+                "Available options are 'conformal', 'grid', 'sampling', and 'ecp'."
             )
     def __call__(self, pos_x, pos_y, orientation_z, linear_x, angular_z, boxes, predictions, confidence_intervals, goal,history=None, **__):
         return self.ControllerModel(pos_x=pos_x, pos_y=pos_y, orientation_z=orientation_z, linear_x=linear_x, angular_z=angular_z, boxes=boxes, predictions=predictions, confidence_intervals=confidence_intervals, goal=goal,history=history)
