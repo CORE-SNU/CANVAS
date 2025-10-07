@@ -4,11 +4,7 @@ import numpy as np
 import cv2
 import pathlib
 import os
-<<<<<<< HEAD
 import csv
-=======
-
->>>>>>> 3c791cf44dd7b460258f8aac5c50e46c9bdd644f
 import sys
 _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
@@ -19,7 +15,7 @@ from canvas import Environment, AdaptiveConformalPredictionModule, Predictors,\
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, \
     save_frame_painted_then_mpl
 from sim_raw_overlay import RawVideoOverlay
-from examples.simulation import Simulation
+from simulation import Simulation
 
 # -----------------------------
 # Main
