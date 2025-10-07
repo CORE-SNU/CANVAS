@@ -3,20 +3,20 @@ import os
 import csv
 import numpy as np
 import pathlib
-from typing import Dict, Tuple, Optional, Iterable
-from src.canvas import Box
+from typing import Dict, Tuple, Optional
 
 # --- Matplotlib (headless) ---
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Polygon, Rectangle
+from matplotlib.patches import Circle, Polygon
 from matplotlib.lines import Line2D
 from matplotlib.collections import LineCollection
 import matplotlib as mpl
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.cm as cm
 import cv2
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 
 def _fallback_to_image_frame(pos: np.ndarray, H: np.ndarray):
     N = pos.shape[0]
@@ -715,38 +715,40 @@ def save_frame_painted_then_mpl(
     plt.close(fig)
     return out_path
 
+
+
 def save_frame_mpl_traj(
-    outdir: str,
-    frame_idx: int,
-    static_boxes: Optional[list]=None,
-    robot_xy: Optional[Tuple[float, float]]=None,
-    robot_traj_xy: Optional[Tuple[list[float], list[float]]]=None,
-    goal_xy: Optional[Tuple[float, float]]=None,
-    r_star: Optional[float]=None,
-    # data
-    valid_obs: Optional[Dict]=None,
-    valid_obs_future_true: Optional[Dict]=None,
-    prediction_res: Optional[Dict]=None,
-    # homography
-    homography_H: Optional[np.ndarray]=None,                # 3x3
-    # CI controls
-    annotate_ci: bool=False,
-    ci_cmap: str='plasma',
-    ci_vmin: float=0.0,
-    ci_vmax: float= 1.0,
-    ci_thick_min: int=2,
-    ci_thick_max: int=5,
-    # draw options
-    pred_steps: Optional[int]=None,
-    paint_alpha: float=1.0,  # <1.0 = blended overlay
-    # background
-    background_image: np.ndarray=None,  # BGR or RGB; uint8 preferred
-    assume_bgr: bool=True,              # True if your bg/painting path uses cv2 BGR
-    # legend/colorbar
-    add_legend: bool=True,
-    add_colorbar: bool=True,
-    cbar_label: str='CI Control',
-    ci_data: Optional[np.ndarray]=None,  # (N,) values to color robot/ped history
+        outdir: str,
+        frame_idx: int,
+        static_boxes: Optional[list] = None,
+        robot_xy: Optional[Tuple[float, float]] = None,
+        robot_traj_xy: Optional[Tuple[list[float], list[float]]] = None,
+        goal_xy: Optional[Tuple[float, float]] = None,
+        r_star: Optional[float] = None,
+        # data
+        valid_obs: Optional[Dict] = None,
+        valid_obs_future_true: Optional[Dict] = None,
+        prediction_res: Optional[Dict] = None,
+        # homography
+        homography_H: Optional[np.ndarray] = None,  # 3x3
+        # CI controls
+        annotate_ci: bool = False,
+        ci_cmap: str = 'plasma',
+        ci_vmin: float = 0.0,
+        ci_vmax: float = 1.0,
+        ci_thick_min: int = 6,
+        ci_thick_max: int = 6,
+        # draw options
+        pred_steps: Optional[int] = None,
+        paint_alpha: float = 1.0,  # <1.0 = blended overlay
+        # background
+        background_image: np.ndarray = None,  # BGR or RGB; uint8 preferred
+        assume_bgr: bool = True,  # True if your bg/painting path uses cv2 BGR
+        # legend/colorbar
+        add_legend: bool = True,
+        add_colorbar: bool = True,
+        cbar_label: str = 'CI Control',
+        ci_data: Optional[np.ndarray] = None,  # (N,) values to color robot/ped history
 ) -> str:
     """Paint trajectories onto the image (cv2), then add legend + colorbar in Matplotlib."""
     import os, cv2, numpy as np, matplotlib as mpl
@@ -792,7 +794,7 @@ def save_frame_mpl_traj(
     def color_from_ci(ci_val: float):
         r, g, b, _ = cmap(norm(ci_val))  # Matplotlib returns RGBA in [0,1]
         # cv2 uses BGR with [0..255] ints
-        return (int(255*b), int(255*g), int(255*r))  # BGR
+        return (int(255 * b), int(255 * g), int(255 * r))  # BGR
 
     def thickness_from_ci(ci_val: float) -> int:
         frac = (ci_val - norm.vmin) / (norm.vmax - norm.vmin + 1e-12)
@@ -811,13 +813,13 @@ def save_frame_mpl_traj(
         if c.size == 0:
             return None
         nseg = hist_len - 1
-        base_x   = np.linspace(0.0, 1.0, num=len(c))
+        base_x = np.linspace(0.0, 1.0, num=len(c))
         target_x = np.linspace(0.0, 1.0, num=nseg)
         return np.interp(target_x, base_x, c)
-    
+
     # --- HISTORY (pedestrians): navy for early part, CI-colored for last 8 ---
     if valid_obs:
-        navy = (128, 0, 0)  # BGR-ish dark blue
+        navy = (194, 139, 24)  # BGR-ish dark blue
         for _, arr in valid_obs.items():
             a = np.asarray(arr, dtype=np.float64)
             if a.ndim == 2 and a.shape[1] >= 2:
@@ -832,7 +834,7 @@ def save_frame_mpl_traj(
                 # draw early part in navy
                 if past_end >= 1:
                     for i in range(past_end):
-                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), navy, 2, cv2.LINE_AA)
+                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i + 1]), navy, 2, cv2.LINE_AA)
 
                 # draw last 8 with CI colors (if provided); else navy
                 if HIST_LEN >= 2:
@@ -842,22 +844,22 @@ def save_frame_mpl_traj(
                     if seg_vals is not None:
                         for i in range(HIST_LEN - 1):
                             ci_val = float(seg_vals[i])
-                            color  = color_from_ci(ci_val)
-                            thick  = thickness_from_ci(ci_val) if annotate_ci else ci_thick_min
-                            cv2.line(overlay, tuple(hist_pts[i]), tuple(hist_pts[i+1]), color, thick, cv2.LINE_AA)
+                            color = color_from_ci(ci_val)
+                            thick = thickness_from_ci(ci_val) if annotate_ci else ci_thick_min
+                            cv2.line(overlay, tuple(hist_pts[i]), tuple(hist_pts[i + 1]), color, thick, cv2.LINE_AA)
                         # head dot in last CI color
                         cv2.circle(overlay, tuple(hist_pts[-1]), radius=3,
                                    color=color_from_ci(float(seg_vals[-1])), thickness=-1, lineType=cv2.LINE_AA)
                     else:
                         # fallback: navy for the last 8 too
                         for i in range(HIST_LEN - 1):
-                            cv2.line(overlay, tuple(hist_pts[i]), tuple(hist_pts[i+1]), navy, 2, cv2.LINE_AA)
+                            cv2.line(overlay, tuple(hist_pts[i]), tuple(hist_pts[i + 1]), navy, 2, cv2.LINE_AA)
                         cv2.circle(overlay, tuple(hist_pts[-1]), radius=3, color=navy,
                                    thickness=-1, lineType=cv2.LINE_AA)
 
     # --- GT FUTURE (black dashed-ish) ---
     if valid_obs_future_true:
-        black = (0, 0, 0)
+        gray = (130, 130, 130)
         for _, arr in valid_obs_future_true.items():
             a = np.asarray(arr, dtype=np.float64)
             if a.ndim == 2 and a.shape[1] >= 2:
@@ -865,9 +867,9 @@ def save_frame_mpl_traj(
                 if uv is None or len(uv) < 2 or not np.isfinite(uv).all():
                     continue
                 pts = np.round(uv).astype(int)
-                for i in range(len(pts)-1):
-                    if i % 2 == 0:
-                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), black, 1, cv2.LINE_AA)
+                for i in range(len(pts) - 1):
+                    # if i % 2 == 0:
+                    cv2.line(overlay, tuple(pts[i]), tuple(pts[i + 1]), gray, ci_thick_min, cv2.LINE_AA)
 
     # --- PREDICTION (plain red for now) ---
     if prediction_res:
@@ -885,8 +887,8 @@ def save_frame_mpl_traj(
                 continue
             pts = np.round(p_uv).astype(int)
             red = (0, 0, 255)
-            for i in range(len(pts)-1):
-                cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), red, ci_thick_min, cv2.LINE_AA)
+            for i in range(len(pts) - 1):
+                cv2.line(overlay, tuple(pts[i]), tuple(pts[i + 1]), navy, ci_thick_min, cv2.LINE_AA)
 
     # === NEW: ROBOT TRAJECTORY (CI-colored) ===  (UNCHANGED from your code)
     if robot_traj_xy is not None:
@@ -915,15 +917,15 @@ def save_frame_mpl_traj(
 
                 # Draw with CI-based color/thickness (or fallback color)
                 if seg_vals is not None:
-                    for i in range(len(pts)-1):
+                    for i in range(len(pts) - 1):
                         ci_val = float(seg_vals[i])
-                        color  = color_from_ci(ci_val)
-                        thick  = thickness_from_ci(ci_val) if annotate_ci else ci_thick_min
-                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]), color, thick, cv2.LINE_AA)
+                        color = color_from_ci(ci_val)
+                        thick = thickness_from_ci(ci_val) if annotate_ci else ci_thick_min
+                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i + 1]), color, thick, cv2.LINE_AA)
                 else:
                     # Fallback single-color if ci_data missing
-                    for i in range(len(pts)-1):
-                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i+1]),
+                    for i in range(len(pts) - 1):
+                        cv2.line(overlay, tuple(pts[i]), tuple(pts[i + 1]),
                                  (0, 255, 0), ci_thick_min, cv2.LINE_AA)  # green
 
         # Optionally mark current robot & goal positions
@@ -937,7 +939,7 @@ def save_frame_mpl_traj(
             if g_uv is not None:
                 cv2.drawMarker(overlay, tuple(np.round(g_uv[0]).astype(int)),
                                color=(0, 255, 255), markerType=cv2.MARKER_STAR,
-                               markerSize=10, thickness=2, line_type=cv2.LINE_AA)
+                               markerSize=30, thickness=5, line_type=cv2.LINE_AA)
 
     # --- blend overlay to base image ---
     painted = overlay if paint_alpha >= 1.0 else cv2.addWeighted(overlay, paint_alpha, img, 1.0 - paint_alpha, 0.0)
@@ -948,25 +950,28 @@ def save_frame_mpl_traj(
     # keep 1:1 pixel size with a square default; adjust if your image isn't square
     fig_dpi = max(1, int(W_img / 6))  # keeps width ~W_img px for figsize=(6,6)
     fig, ax = plt.subplots(figsize=(6, 6), dpi=fig_dpi)
-
     ax.imshow(shown, interpolation='lanczos')
-    #ax.set_axis_off()
-    ax.grid(True)
+    ax.set_axis_off()
 
     # Colorbar sharing the same norm & cmap
     if add_colorbar:
         mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
         mappable.set_array([])
-        cb = plt.colorbar(mappable, ax=ax, pad=0.01)
+        # cb = plt.colorbar(mappable, ax=ax, pad=0.01)
+
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+
+        cb = plt.colorbar(mappable, cax=cax)
         cb.set_label(cbar_label, rotation=90, labelpad=12, va='center')
 
     # Legend with proxy handles (unchanged labels)
     if add_legend:
-        proxy_ci_color = cmap(norm(0.5*(ci_vmin+ci_vmax)))
+        proxy_ci_color = cmap(norm(0.5 * (ci_vmin + ci_vmax)))
         legend_elements = [
-            Line2D([0], [0], color='navy',  lw=2,   linestyle='-',  label='History (8)'),
-            Line2D([0], [0], color='black', lw=1,   linestyle='--', label='GT future (12)'),
-            Line2D([0], [0], color=proxy_ci_color, lw=3, label='Prediction (12)'),
+            Line2D([0], [0], color=(24/255, 139/255, 194/255), lw=ci_thick_min, linestyle='solid', label='prediction'),
+            Line2D([0], [0], color=(130/255, 130/255, 130/255), lw=ci_thick_min, linestyle='solid', label='GT future'),
+            Line2D([0], [0], color=proxy_ci_color, lw=ci_thick_min, label='history'),
         ]
         ax.legend(handles=legend_elements, loc='upper right', fontsize=8, frameon=True, framealpha=0.9)
 

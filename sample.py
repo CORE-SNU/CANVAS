@@ -1,6 +1,6 @@
-from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, GridMPC, AdaptiveConformalPredictionModule,\
- Predictors, CompetencyIndex, Predictor_CI,dynamic_observation_filter ,region_to_box
+from canvas.datasets import get_dataset_spec
+from canvas import Environment, GridMPC, AdaptiveConformalPredictionModule,\
+ Predictors, CompetencyIndex, dynamic_observation_filter ,region_to_box
 import numpy as np
 
 # setup: dataset, predictor, simulation environment, controller, competency index

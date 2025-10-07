@@ -1,0 +1,12 @@
+{
+  "H": 8,
+  "P": 12,
+  "device": "cpu",
+  "K_path": "/raid/users/snowhan227/CANVAS/biwi_eth_koopman_K_1.npy",
+  "max_neighbors": 6,
+  "neighbor_radius": 5.0,
+  "neighbor_relative": true,
+  "test_file": "lobby2/biwi_eth/test/biwi_eth.npy",
+  "train_dir": "lobby2/biwi_eth/train",
+  "feature_in_dim": 28
+}

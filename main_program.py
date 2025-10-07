@@ -4,20 +4,22 @@ import numpy as np
 import cv2
 import pathlib
 import os
+<<<<<<< HEAD
 import csv
+=======
+
+>>>>>>> 3c791cf44dd7b460258f8aac5c50e46c9bdd644f
 import sys
 _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
-from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas.controllers.controller import controllers
-from src.canvas import Environment, Box, \
-    AdaptiveConformalPredictionModule, Predictors,\
+from canvas.datasets import get_dataset_spec, _load_background_image
+from canvas import controllers
+from canvas import Environment, AdaptiveConformalPredictionModule, Predictors,\
         CompetencyIndex, Predictor_CI, region_to_box,dynamic_observation_filter
 from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, \
-save_ci_iteration_csv,save_frame_painted_then_mpl, save_frame_mpl_traj
-from math import radians, cos, sin
+    save_frame_painted_then_mpl
 from sim_raw_overlay import RawVideoOverlay
-from simulation import Simulation
+from examples.simulation import Simulation
 
 # -----------------------------
 # Main

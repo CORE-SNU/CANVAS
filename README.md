@@ -2,8 +2,8 @@
 Below is a sample run code for the bare minimum imports required to call the predictors and competency index implemented into our code.
 
 ```python
-from src.canvas.datasets.dataset_loader import get_dataset_spec, _load_background_image
-from src.canvas import Environment, GridMPC, AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
+from canvas.datasets import get_dataset_spec, _load_background_image
+from canvas import Environment, GridMPC, AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
 
 # setup: dataset, predictor, simulation environment, controller, competency index
 prediction_len = 12
@@ -99,9 +99,15 @@ You can run the simulation with "main_program.py" with some dedicated variables
 - [ ] benchmark tests: training in `SNU-ASRI`
 - [ ] OOD definition & evaluation
 - [ ] intuitive scenarios
+- [ ] exclude `.npy` files from the repository; they are too large to keep inside the repository; need to be downloaded from an external source
 
 [trajectronpp-link]: https://github.com/StanfordASL/Trajectron-plus-plus
 [eigentraj-link]: https://github.com/InhwanBae/EigenTrajectory
 [socialstgcnn-link]: https://github.com/abduallahmohamed/Social-STGCNN
 [socialvae-link]: https://github.com/xupei0610/SocialVAE
 [koopcast-link]: https://github.com/Koopcast/Koopcast
+
+
+# Update Log
+[2025-10-02 19:45] move src/canvas to canvas; move all simulation*.py files into examples
+[2025-10-02 20:48] Dataset class added; defined in `canvas.datasets.dataset`
