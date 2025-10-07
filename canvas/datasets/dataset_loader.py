@@ -28,7 +28,6 @@ def load_dataset(name_or_path: Union[str, os.PathLike]):
     You can also pass a relative/absolute path like 'datasets/biwi_eth.npy'.
     """
     s = str(name_or_path).strip()
-
     # If it looks like a file path or ends with .npy, load it directly.
     if os.path.sep in s or s.lower().endswith(".npy"):
         path = s if os.path.isabs(s) else os.path.join(_DATA_DIR, s)
@@ -38,7 +37,7 @@ def load_dataset(name_or_path: Union[str, os.PathLike]):
 
     # Otherwise, interpret as a dataset code.
     key = s.lower()
-
+    
     if key in ("eth", "biwi_eth", "biwi-eth"):
         fname = "biwi_eth.npy"
     elif key in ("hotel", "biwi_hotel", "biwi-hotel"):
@@ -59,8 +58,8 @@ def load_dataset(name_or_path: Union[str, os.PathLike]):
             "Use one of: ETH, HOTEL, ZARA1, ZARA2, STUDENTS001, STUDENTS003 (UNIV), "
             "or provide a direct .npy path."
         )
-
     path = os.path.join(_DATA_DIR, fname)
+    
     if not os.path.exists(path):
         raise FileNotFoundError(f"Dataset file not found: {path}")
 

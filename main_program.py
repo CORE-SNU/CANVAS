@@ -42,7 +42,7 @@ def main(dataset, predictor, controller,
     t_begin = t_begin # time step to begin environment in dataset
     t_end   = t_end   # time step to end environment in dataset
     dataset = dataset
-    datasets_dir = os.path.join(_DATA_DIR, "src", "canvas", "datasets")
+    datasets_dir = os.path.join(_DATA_DIR, "canvas", "datasets")
     fname_map = {
         "Lobby":  "0.npy",
         "ETH":    "biwi_eth.npy",
