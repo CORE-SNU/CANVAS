@@ -9,9 +9,9 @@ _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
 from canvas.datasets import get_dataset_spec, _load_background_image
-from canvas import Environment, GridMPC, \
-    AdaptiveConformalPredictionModule, Predictors, CompetencyIndex, Predictor_CI
-from save_ci import save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy, save_frame_png
+from canvas import CompetencyIndex, Predictor_CI
+from save_ci import save_frame_mpl_traj
+from sim_raw_overlay import RawVideoOverlay
 
 """
 Simulation pipeline (per frame):
@@ -60,9 +60,6 @@ class Simulation():
         self.buffer_pos_x_result = []
         self.buffer_pos_y_result = []
 
-    def save_video(self):
-        return
-
     def run(self, times):
         print("==================================")
         print("SIMULATION PIPELINE Started")
@@ -81,6 +78,7 @@ class Simulation():
         buffer_intermediate = []
         buffer_terminal = []
         buffer_control = []
+        buffer_ci_data=[]
 
         spec = get_dataset_spec(self.dataset)
         bg_img = _load_background_image(spec.bg.path, spec.bg.rotate90)
@@ -97,10 +95,7 @@ class Simulation():
         position_x, position_y, orientation_z = self.env.reset()
         begin = time.time()
 
-        self.set_buffer()
-
-        video_writer = None
-        video_path = iter_out_dir / f"sim_iter_{times+1:03d}.mp4"
+        self.set_buffer()       
 
         while not done:
             detect_time = time.time()
