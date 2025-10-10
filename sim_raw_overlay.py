@@ -41,7 +41,7 @@ DATASET_TO_H_FILE = {
 # absolute paths
 #FRAMES_ROOT = '/media/sju5379/F6340D35340CF9FF/euped_assets/frames'
 #HZIP_PATH = '/home/sju5379/jaeuk/research/robotics/ECP-MPC/assets/homographies'
-FRAMES_ROOT = '/home/core/Documents/CANVAS/canvas/assets/final'
+FRAMES_ROOT = '/home/core/Documents/CANVAS/canvas/assets/final/frames'
 HZIP_PATH = '/home/core/Documents/CANVAS/canvas/assets/homographies'
 
 def find_frames_dir(asset_dir: str, dataset: str) -> str:

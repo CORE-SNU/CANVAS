@@ -237,7 +237,7 @@ class Simulation():
                 print(frame, 'Goal reached!')
                 self.env.step([0, 0])
                 is_success = True
-                success_count += 1
+                self.success_count += 1
                 travel_time = time.time() - begin
                 break
 
@@ -264,10 +264,8 @@ class Simulation():
             video_writer.release()
         if overlay is not None:
             overlay.close()
-        if it_ci_traj_pos_rows:
-            save_ci_traj_positions_csv(iter_out_dir=iter_out_dir, iteration_index=times+1, rows=it_ci_traj_pos_rows)
-        if it_ci_ctrl_local_rows:
-            save_ci_ctrl_local_csv(iter_out_dir=iter_out_dir, iteration_index=times+1, rows=it_ci_ctrl_local_rows)
+        #if ci_data:
+        #    save_ci_traj_positions_csv(iter_out_dir=iter_out_dir, iteration_index=times+1, rows=ci_data)
 
         # ---- Iteration-level rates and summaries ----
         self.buffer_collision_rate.append(collision_count / max(1, frame))
