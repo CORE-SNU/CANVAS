@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import pathlib
-from typing import Union
+from typing import Union, Dict
 import math
 
 class Dataset:
@@ -82,7 +82,7 @@ class Dataset:
             self,
             timestep: int,
             history_length: int
-    ):
+    ) -> Dict[int, np.ndarray]:
         assert timestep < self.max_timesteps
         assert history_length > 0
 
@@ -95,7 +95,7 @@ class Dataset:
 
         return scene
 
-    def get_future(self, timestep: int, future_length: int):
+    def get_future(self, timestep: int, future_length: int) -> Dict[int, np.ndarray]:
 
         assert timestep < self.max_timesteps
         assert future_length > 0
@@ -103,8 +103,9 @@ class Dataset:
         future = {}
         for idx in self._active_agents[timestep]:
             t_end = self._active_intervals[idx, 1]
-            t_end = int(min(t_end, timestep + future_length + 1))
-            future_array = self._data[timestep+1:t_end, idx]
-            future[idx] = np.copy(future_array)
+            if t_end > timestep + 1:
+                t_end = int(min(t_end, timestep + future_length + 1))
+                future_array = self._data[timestep+1:t_end, idx]
+                future[idx] = np.copy(future_array)
 
         return future
