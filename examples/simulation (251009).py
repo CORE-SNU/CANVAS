@@ -8,7 +8,7 @@ _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
 from canvas.datasets import get_dataset_spec, _load_background_image
-from canvas import dynamic_observation_filter
+from canvas import Predictor_CI, CompetencyIndex, dynamic_observation_filter
 from save_ci import save_frame_mpl_traj, save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy
 from sim_raw_overlay import RawVideoOverlay
 
@@ -24,7 +24,7 @@ Simulation pipeline (per frame):
 """
 class Simulation():
     def __init__(self, environment, predictor, controller, cp_module, goal, max_pedestrian, persistent_static_boxes, dataset, 
-                 prediction_len, history_len, dt, save_video=True, video_fps=2.5, use_overlay=True, frame_offset=40, extracted_fps=2.5, output_fps=10.0):
+                 prediction_len, history_len, dt, save_video=True, video_fps=2.5, frame_offset=40, extracted_fps=2.5, output_fps=10.0):
         self.env = environment
         self.predictor = predictor
         self.controller = controller
@@ -38,7 +38,6 @@ class Simulation():
         self.dt = dt
         self.save_video = save_video
         self.video_fps = video_fps
-        self.use_overlay = use_overlay
         self.frame_offset = frame_offset
         self.extracted_fps = extracted_fps
         self.output_fps = output_fps
@@ -79,9 +78,6 @@ class Simulation():
         collision_count = 0
         is_success = False
 
-        rstar = 0.24
-        CI_t = 3
-
         buffer_infeasibility = []
         minimum_cost = []
         buffer_pos_x = []  # per-frame x within this run
@@ -89,7 +85,7 @@ class Simulation():
         buffer_intermediate = []
         buffer_terminal = []
         buffer_control = []
-        ci_data = []
+        buffer_ci_data=[]
 
         spec = get_dataset_spec(self.dataset)
 
@@ -102,16 +98,15 @@ class Simulation():
         iter_out_dir = pathlib.Path("result") / f"iter_{times+1:03d}"
         iter_out_dir.mkdir(parents=True, exist_ok=True)
         overlay = None
-        if self.use_overlay:
-            out_mp4_overlay = iter_out_dir / f"sim_iter_{times+1:03d}_raw_overlay.mp4"
-            overlay = RawVideoOverlay(
-                dataset=self.dataset,
-                out_video_path=str(out_mp4_overlay),
-                frame_offset=self.frame_offset,
-                sim_dt=self.dt,
-                extracted_fps=self.extracted_fps,
-                output_fps=self.output_fps
-            )
+        out_mp4_overlay = iter_out_dir / f"sim_iter_{times+1:03d}_raw_overlay.mp4"
+        overlay = RawVideoOverlay(
+            dataset=self.dataset,
+            out_video_path=str(out_mp4_overlay),
+            frame_offset=self.frame_offset,
+            sim_dt=self.dt,
+            extracted_fps=self.extracted_fps,
+            output_fps=self.output_fps
+        )
         video_writer = None
         video_path = iter_out_dir / f"sim_iter_{times+1:03d}_mpl.mp4"
 
@@ -131,19 +126,47 @@ class Simulation():
             # --------- Observations (history & GT futures) ---------
             observation = self.env._get_obs()
             observation_future_true = self.env._get_obs_future()
-            valid_obs, valid_obs_future_true = dynamic_observation_filter(
-                observation, position_x, position_y, self.prediction_len, observation_future_true, self.max_ped
-            )
+
+            # Filter valid histories and GT futures (finite & correct shape)
+            valid_obs = {}
+            valid_obs_future_true = {}
+            if isinstance(observation, dict):
+                for pid, traj in observation.items():
+                    # history
+                    try:
+                        arr_hist = np.asarray(traj, dtype=np.float64)
+                    except (TypeError, ValueError):
+                        continue
+                    if not (arr_hist.ndim == 2 and arr_hist.shape[0] == 8 and arr_hist.shape[1] >= 2 and np.isfinite(arr_hist[:, :2]).all()):
+                        continue
+                    valid_obs[pid] = arr_hist
+
+                    # GT future (kept for viz & later scoring; not used by controller here)
+                    fut = observation_future_true.get(pid, None) if isinstance(observation_future_true, dict) else None
+                    if fut is None:
+                        continue
+                    valid_obs_future_true[pid] = fut[:self.prediction_len, :2]
+
+            # --------- Simple collision check (proximity to last history point) ---------
+            dynamic_obs = {}
+            if valid_obs:
+                dynamic_obs = valid_obs
+                initial_positions = np.array([traj[-1, :2] for traj in dynamic_obs.values()])
+                robot_pos = np.array([position_x, position_y])
+                distances = np.sqrt(np.sum((initial_positions - robot_pos) ** 2, axis=1))
+                if np.any(distances <= 0.7):
+                    print("Collision!")
+                    collision_count += int(np.sum(distances <= 0.7))
 
             # --------- Predictor (once per frame) ---------
             pred_start = time.time()
-            prediction_res = self.predictor(valid_obs if valid_obs else {})
+            prediction_res = self.predictor(dynamic_obs if dynamic_obs else {})
             pred_time = time.time() - pred_start
             self.buffer_prediction_times.append(pred_time)
 
-            # --------- CP update (once per frame, pred vs gt) ---------
-            confidence_intervals   = cp_module.update(valid_obs, prediction_res if isinstance(prediction_res, dict) else {})
-            confidence_intervals_gt= cp_module_gt.update(valid_obs, valid_obs_future_true if isinstance(valid_obs_future_true, dict) else {})
+            # --------- CP update (once per frame) ---------
+            confidence_intervals = cp_module.update(dynamic_obs, prediction_res if isinstance(prediction_res, dict) else {})
+            confidence_intervals_gt=cp_module_gt.update(dynamic_obs, valid_obs_future_true if isinstance(valid_obs_future_true, dict) else {})
 
             # --------- Controller (once per frame, with predictions) ---------
             velocity, info, minimum, intermediate, terminal, control, minimal = self.controller(
@@ -155,8 +178,7 @@ class Simulation():
                 boxes=self.persistent_static_boxes,
                 predictions=prediction_res if isinstance(prediction_res, dict) else {},
                 confidence_intervals=confidence_intervals,
-                goal=self.goal,
-                history = valid_obs
+                goal=self.goal
             )
 
             # For GT(Oracle based) : no status update here, just for get controller input for GT
@@ -169,48 +191,10 @@ class Simulation():
                 boxes=self.persistent_static_boxes,
                 predictions=valid_obs_future_true if isinstance(valid_obs_future_true, dict) else {},
                 confidence_intervals=confidence_intervals_gt,
-                goal=self.goal,
-                history = valid_obs
+                goal=self.goal
             )
-
-            # --------- Visualization ---------
-            try:
-                if self.use_overlay:
-                    bg_img = _load_background_image(overlay._frame_path_for_current(), spec.bg.rotate90)
-                    H = overlay.H
-                else:
-                    bg_img = _load_background_image(spec.bg.path, spec.bg.rotate90)
-                    H = None
-                ci_data.append(rstar/(rstar+confidence_intervals[CI_t]))
-                frame_png = save_frame_mpl_traj(
-                    outdir=str(iter_out_dir),
-                    frame_idx=frame,
-                    static_boxes=self.persistent_static_boxes,
-                    robot_xy=(position_x, position_y),
-                    robot_traj_xy=(buffer_pos_x, buffer_pos_y),
-                    goal_xy=self.goal,
-                    valid_obs=valid_obs if valid_obs else {},
-                    valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
-                    prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
-                    r_star=rstar,
-                    background_image=bg_img,
-                    homography_H=H,  # if use_overlay=True
-                    cbar_label ='CI Control Prediction',
-                    ci_data=ci_data
-                )
-                if self.save_video:
-                    img = cv2.imread(frame_png)
-                    if img is not None:
-                        if video_writer is None:
-                            h, w = img.shape[:2]
-                            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                            video_writer = cv2.VideoWriter(str(video_path), fourcc, self.video_fps, (w, h))
-                        video_writer.write(img)
-            except Exception as e:
-                print(f"[WARN] result save failed at frame {frame}: {e}")
-
-            if overlay is not None:
-                overlay.step(valid_obs, valid_obs_future_true, prediction_res)
+            prediction_competency=Predictor_CI()
+            prediction_comptency_score=prediction_competency.CI_default(confidence_intervals)
             
             # --------- Feasibility handling ---------
             buffer_infeasibility.append(info.get('feasible', True))
@@ -259,16 +243,6 @@ class Simulation():
             frame += 1
             buffer_vel = velocity
         
-        # ---- Close writer ----
-        if video_writer is not None:
-            video_writer.release()
-        if overlay is not None:
-            overlay.close()
-        if it_ci_traj_pos_rows:
-            save_ci_traj_positions_csv(iter_out_dir=iter_out_dir, iteration_index=times+1, rows=it_ci_traj_pos_rows)
-        if it_ci_ctrl_local_rows:
-            save_ci_ctrl_local_csv(iter_out_dir=iter_out_dir, iteration_index=times+1, rows=it_ci_ctrl_local_rows)
-
         # ---- Iteration-level rates and summaries ----
         self.buffer_collision_rate.append(collision_count / max(1, frame))
         self.buffer_infeasible_rate.append(infeasible_count / max(1, frame))
