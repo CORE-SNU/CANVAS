@@ -1,17 +1,12 @@
-import time
 import argparse
 import numpy as np
-import cv2
-import pathlib
 import os
-import csv
 import sys
 _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
-from canvas.datasets import get_dataset_spec, _load_background_image
+from canvas.datasets import get_dataset_spec
 from canvas.controllers.controller import controllers
-from canvas import Environment, AdaptiveConformalPredictionModule, Predictors,\
-        CompetencyIndex, Predictor_CI, region_to_box,dynamic_observation_filter
+from canvas import Environment, AdaptiveConformalPredictionModule, Predictors, region_to_box
 from simulation import Simulation
 
 # -----------------------------
@@ -27,14 +22,7 @@ def main(dataset, predictor, controller,
     # Simulation period
     dt = dt 
     # Choose predictor
-    obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')                                    # Trajectron++ predictor
-    # Unified R* (kept for future score/CI; not used in controller)
-    rstar = 0.5
-    # CI Instance
-    ci_traj     = CompetencyIndex(case="traj",      r_star=rstar, return_type="series")
-    ci_ctrl     = CompetencyIndex(case="control",   r_star=rstar, return_type="series")
-    ci_obj      = CompetencyIndex(case="obj",       r_star=rstar)            # scalar
-    ci_ctrlcost = CompetencyIndex(case="ctrl_cost", r_star=rstar)            # scalar
+    obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')
     # Environment setting
     t_begin = t_begin # time step to begin environment in dataset
     t_end   = t_end   # time step to end environment in dataset
@@ -98,7 +86,7 @@ if __name__ == "__main__":
     print("Enter the variables : --goal_x, --goal_y, --num_iter, --r_star, --dataset, --predictor")
     print("--dataset : ETH, Hotel, Univ, Zara01, Zara02, Lobby")
     print("--predictor : linear, gp, eigen, traj, koopcast")
-    print("--controller : grid, congromal, sampling, ecp")
+    print("--controller : grid, conformal, sampling, ecp_mpc")
     print("===================================")
     parser = argparse.ArgumentParser()
     parser.add_argument('--start_x', type=float, default=0.0)
@@ -116,14 +104,14 @@ if __name__ == "__main__":
     parser.add_argument('--t_end', type=int, default=2000)
     #============================================================
     parser.add_argument('--save_video', type=bool, default=True)
-    parser.add_argument('--video_fps', type=float, default=2.5)
+    parser.add_argument('--video_fps', type=float, default=10.0)
     parser.add_argument("--frame_offset", type=int, default=40,
                         help="Align sim time to real frames (index shift)")
-    parser.add_argument("--extracted_fps", type=float, default=2.5,
+    parser.add_argument("--extracted_fps", type=float, default=10.0,
                         help="FPS used by video_parser.py to extract frames")
     parser.add_argument("--output_fps", type=float, default=10.0,
                         help="Output MP4 FPS; defaults to extracted_fps")
-    parser.add_argument("--max_ped", type=float, default=4.0,
+    parser.add_argument("--max_ped", type=int, default=4,
                     help="Max pedestrians to consider (others ignored)")
     args = parser.parse_args()
 
