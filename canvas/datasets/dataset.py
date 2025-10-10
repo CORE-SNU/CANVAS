@@ -1,5 +1,7 @@
 import numpy as np
 import os
+import pathlib
+from typing import Union
 import math
 
 class Dataset:
@@ -11,14 +13,14 @@ class Dataset:
     def __init__(
             self,
             name: str,
-            data_path: str,
+            data_path: Union[str, pathlib.Path],
             dt: float
     ):
         # TODO: visualization path
         self._name = name  # dataset name
 
         assert os.path.exists(data_path)
-        assert data_path.endswith('.npy')
+        assert str(data_path).endswith('.npy')
 
         self._path = data_path
         self._data = np.load(self._path)
