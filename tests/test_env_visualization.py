@@ -9,7 +9,6 @@ def test_env_visualization():
     dataset = RegisteredDatasets['zara1']
     env = Environment(
         dataset=dataset,
-        dt=dataset.dt,
         init_robot_state={'position_x': 12., 'position_y': 5., 'orientation_z': np.pi},
         goal_pos=np.array([3., 6.]),
         t_begin=40,

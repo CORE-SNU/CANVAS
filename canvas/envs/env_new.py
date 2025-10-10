@@ -25,7 +25,6 @@ class Environment:
     def __init__(
             self,
             dataset: Dataset,
-            dt: float,
             init_robot_state,
             goal_pos,
             t_begin=40,
@@ -49,7 +48,7 @@ class Environment:
 
         self._dataset: Dataset = dataset
 
-        self._dt = dt
+        self._dt = dataset.dt
 
         # assert self._data.shape == (201, n_pedestrians, 2)
 
@@ -94,6 +93,14 @@ class Environment:
             os.makedirs(path_to_save, exist_ok=True)
 
     # utilize valid pedestrians to get data out of here
+
+    @property
+    def timestep(self):
+        return self._step
+
+    @property
+    def dt(self):
+        return self._dt
 
     def _get_obs(self):
         """Get the history length amount of observed trajectories of all pedestrians up to the current step."""
@@ -200,6 +207,8 @@ class Environment:
             # no color overlay -> default colors
             ego_params['color'] = 'cyan'
             non_ego_h_params['color'] = 'tab:red'
+
+        kwargs['c'] = None
 
         # ego-robot
         ego_pos_trajectory = np.array([self._x_traj, self._y_traj]).T

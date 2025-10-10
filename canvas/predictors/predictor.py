@@ -48,12 +48,12 @@ class Predictors:
         elif name in ["trajectron", "traj", "tpp"]:
 
             trajectron_dirnames = {
-                'ETH': 'eth_vel_ar3',
-                'Hotel': 'hotel_vel_ar3',
-                'Univ': 'univ_vel_ar3',
-                'Zara01': 'zara01_vel_ar3',
-                'Zara02': 'zara02_vel_ar3',
-                'Lobby': 'lobby_data_ar3'
+                'eth': 'eth_vel_ar3',
+                'hotel': 'hotel_vel_ar3',
+                'univ': 'univ_vel_ar3',
+                'zara1': 'zara01_vel_ar3',
+                'zara2': 'zara02_vel_ar3',
+                'snu-asri': 'lobby_data_ar3'
             }
 
             if dataset in trajectron_dirnames:
