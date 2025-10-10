@@ -79,8 +79,16 @@ def main(dataset, predictor, controller,
                      max_pedestrian=max_ped,
                      persistent_static_boxes=persistent_static_boxes,
                      dataset=dataset,
-                     prediction_len=prediction_len)
-
+                     prediction_len=prediction_len,
+                     history_len=history_len,
+                     dt=dt,
+                     save_video=save_video,
+                     video_fps=video_fps,
+                     use_overlay=True,
+                     frame_offset=frame_offset,
+                     extracted_fps=extracted_fps,
+                     output_fps=output_fps
+                    )
     
     for times in range(num_iter):
         sim.run(times=times)
