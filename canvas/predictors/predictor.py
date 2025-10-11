@@ -1,4 +1,5 @@
 import os
+import pathlib
 import numpy as np
 from .linear_predictor import LinearPredictor
 from .trajectron_predictor import TrajectronPredictor
@@ -8,11 +9,14 @@ from .koopcast_predictor import Koopcast_predictor
 import torch
 
 
+ASSET_DIR = pathlib.Path(__file__).parent.parent.parent / 'assets'
+
+
 class Predictors:
     def __init__(self, chosen_predictor='linear',
                  prediction_len=12,history_len=8,
                  dt=0.1,smoothing_factor=0.75,
-                 model_dir='canvas/predictors/eigen/models/lobby_data/model_best.pth', #'src/canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3'
+                 model_dir='canvas/predictors/eigen/models/lobby_data/model_best.pth',
                  device='cpu',
                  dataset='Lobby',
                  cfg='src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
@@ -41,20 +45,19 @@ class Predictors:
                 dt=dt,
             )
 
-        elif name in ("trajectron", "traj", "tpp"):
-            # Trajectron++ predictor
-            if(dataset=='ETH'):
-                model_dir="canvas/predictors/trajectron/models_11_Feb_2025_10_01_22eth_vel_ar3"
-            elif(dataset=='Hotel'):
-                model_dir="canvas/predictors/trajectron/models_10_Feb_2025_21_00_50hotel_vel_ar3"
-            elif(dataset=='Univ'):
-                model_dir="canvas/predictors/trajectron/models_10_Feb_2025_15_01_26_univ_vel_ar3"
-            elif(dataset=='Zara01'):
-                model_dir="canvas/predictors/trajectron/models_10_Feb_2025_11_19_14_zara01_vel_ar3"
-            elif(dataset=='Zara02'):
-                model_dir="canvas/predictors/trajectron/models_03_Feb_2025_14_11_39_zara02_vel_ar3"
-            elif(dataset=='Lobby'):
-                model_dir="src/canvas/predictors/trajectron/models_17_Mar_2025_22_52_52lobby_data_ar3"
+        elif name in ["trajectron", "traj", "tpp"]:
+
+            trajectron_dirnames = {
+                'eth': 'eth_vel_ar3',
+                'hotel': 'hotel_vel_ar3',
+                'univ': 'univ_vel_ar3',
+                'zara1': 'zara01_vel_ar3',
+                'zara2': 'zara02_vel_ar3',
+                'snu-asri': 'lobby_data_ar3'
+            }
+
+            if dataset in trajectron_dirnames:
+                model_dir = ASSET_DIR / 'models' / 'trajectron' / trajectron_dirnames[dataset]
             else:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
