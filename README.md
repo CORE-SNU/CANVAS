@@ -95,11 +95,11 @@ You can run the simulation with "main_program.py" with some dedicated variables
 - [x] MPPI implementation
 - [ ] MPPI refinement (parameters, action constraints, $\delta u$)
 - [ ] ECP-MPC migration
-- [ ] visualization: direction-indicators, complete pedestrian histories, robot figure, linewidth
+- [x] visualization: direction-indicators, complete pedestrian histories, robot figure, linewidth
 - [ ] benchmark tests: training in `SNU-ASRI`
 - [ ] OOD definition & evaluation
 - [ ] intuitive scenarios
-- [ ] exclude `.npy` files from the repository; they are too large to keep inside the repository; need to be downloaded from an external source
+- [x] exclude `.npy` files from the repository; they are too large to keep inside the repository; need to be downloaded from an external source
 
 [trajectronpp-link]: https://github.com/StanfordASL/Trajectron-plus-plus
 [eigentraj-link]: https://github.com/InhwanBae/EigenTrajectory
