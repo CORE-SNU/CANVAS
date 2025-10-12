@@ -19,7 +19,7 @@ class Predictors:
                  model_dir='canvas/predictors/eigen/models/lobby_data/model_best.pth',
                  device='cpu',
                  dataset='Lobby',
-                 cfg='src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
+                 cfg='canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
         """Simple access class for different predictors.
 
         Args:
@@ -46,7 +46,7 @@ class Predictors:
                 dt=dt,
             )
 
-        elif name in ["trajectron", "traj", "tpp"]:
+        elif name in ("trajectron", "traj", "tpp"):
 
             trajectron_dirnames = {
                 'eth': 'eth_vel_ar3',
@@ -94,7 +94,7 @@ class Predictors:
             else:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
-                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri."
                 )
 
             self.PredictorModel = EigenTrajectoryPredictor(
@@ -141,7 +141,7 @@ class Predictors:
             else:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
-                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri."
                     )
 
             self.PredictorModel=Koopcast_predictor(

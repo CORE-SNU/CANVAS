@@ -92,7 +92,7 @@ def _load_background_image(pathlike, rotate90: bool):
     return img
 
 def _make_regions(name: str) -> List[Dict[str, float]]:
-    if name == "Lobby":
+    if name == "snu-asri":
         return [
             {"name": "glass door below", "xmin": 0.3, "xmax": 5.0, "ymin": -12.0, "ymax": -6.3},
             {"name": "left glass", "xmin": -7.0, "xmax": 0.3, "ymin": -12.0, "ymax": -8.5},
@@ -106,7 +106,7 @@ def _make_regions(name: str) -> List[Dict[str, float]]:
             {"name": "right cylinder", "xmin": 5.3, "xmax": 6.3, "ymin": -1.5, "ymax": -0.7},
         ]
     
-    if name == "ETH":
+    if name == "eth":
         return [
             {"name": "left road", "xmin": -10.0, "xmax": -5.2, "ymin": -7.0, "ymax": 18.0},
             {"name": "lower ground", "xmin": 0.0, "xmax": 13.0, "ymin": -7.0, "ymax": -1.0},
@@ -114,7 +114,7 @@ def _make_regions(name: str) -> List[Dict[str, float]]:
             {"name": "right building", "xmin": 13.0, "xmax": 20.0, "ymin": -7.0, "ymax": 18.0}
         ]
     
-    if name == "Hotel":
+    if name == "hotel":
         return [
             {"name": "left road", "xmin": -3.0, "xmax": -0.8, "ymin": -11.0, "ymax": 5.0},
             {"name": "left bench", "xmin": 0.9, "xmax": 1.7, "ymin": -11.0, "ymax": -8.5},
@@ -131,13 +131,13 @@ def _make_regions(name: str) -> List[Dict[str, float]]:
             {"name": "right upper car", "xmin": 9.5, "xmax": 11.8, "ymin": 6.4, "ymax": 14.0}
         ]
     
-    if name == "Zara02":
+    if name == "zara2":
         return [
             {"name": "left building", "xmin": -0.5, "xmax": 9.8, "ymin": 8.8, "ymax": 15.0},
             {"name": "right upper car", "xmin": 9.8, "xmax": 12.3, "ymin": 7.1, "ymax": 15.0}
         ]
     
-    if name == "Univ":
+    if name == "univ":
         return [
             {"name": "upper place", "xmin": 3.8, "xmax": 11.4, "ymin": 12.4, "ymax": 14.5},
             {"name": "upper down place", "xmin": 5.7, "xmax": 10.0, "ymin": 10.8, "ymax": 14.5},
@@ -148,29 +148,29 @@ def _make_regions(name: str) -> List[Dict[str, float]]:
 
 def get_dataset_spec(name: str) -> DatasetSpec:
     HERE = Path(__file__).resolve().parent
-    if name == "Lobby":
+    if name == "snu-asri":
         bg = BgSpec(path=HERE/"lobby3.png", extent=(-3.0, 8.5, -9.5, 1.5), rotate90=False, alpha=0.6)
         return DatasetSpec(name=name, bg=bg, static_regions=_make_regions(name))
 
-    if name == "ETH":
+    if name == "eth":
         bg = BgSpec(path=HERE/"eth.png", extent=(-8.69, 18.42, -6.17, 17.21), rotate90=True, alpha=0.6)
         return DatasetSpec(name=name, bg=bg, static_regions=_make_regions(name))
 
-    if name == "Hotel":
+    if name == "hotel":
         bg = BgSpec(path=HERE/"hotel.png", extent=(-3.25, 6.35, -10.31, 4.31), rotate90=True, alpha=0.6)
         return DatasetSpec(name=name, bg=bg, static_regions=_make_regions(name))
 
-    if name == "Zara01" or name in ("zara1", "zara01", "crowds_zara01", "zara_1"):
+    if name == "zara1" or name in ("zara1", "zara01", "crowds_zara01", "zara_1"):
         bg = BgSpec(path=HERE/"crowds_zara01.jpg",
                     extent=(-0.02104651, 15.13244069, 0.76134018, 13.3864436), rotate90=False, alpha=0.6)
         return DatasetSpec(name=name, bg=bg, static_regions=_make_regions(name))
 
-    if name == "Zara02":
+    if name == "zara2":
         bg = BgSpec(path=HERE/"crowds_zara02.jpg",
                     extent=(-0.357790686363, 15.558422764, 0.726257209729, 14.9427441591), rotate90=False, alpha=0.6)
         return DatasetSpec(name=name, bg=bg, static_regions=_make_regions(name))
 
-    if name == "Univ":
+    if name == "univ":
         bg = BgSpec(path=HERE/"students_003.jpg",
                     extent=(-0.174686040989, 15.4369843957, -0.222192273533, 13.8542013734), rotate90=False, alpha=0.6)
         return DatasetSpec(name=name, bg=bg, static_regions=_make_regions(name))

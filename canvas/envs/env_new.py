@@ -290,7 +290,7 @@ class Environment:
             ax.set_xlim(0, w)
             ax.set_ylim(h, 0)
         ax.legend()
-        # fig.savefig(os.path.join(self._path_to_save, '{:03d}.png'.format(self._step)), bbox_inches='tight', pad_inches=0)
-        # plt.close()
+        fig.savefig(os.path.join(self._path_to_save, '{:03d}.png'.format(self._step)), bbox_inches='tight', pad_inches=0)
+        plt.close()
 
         return fig, ax

@@ -15,7 +15,8 @@ def test_env_visualization():
         t_end=200,
         history_len=8,
         prediction_horizon=12,
-        path_to_frames='/media/sju5379/F6340D35340CF9FF/euped_assets/frames',
+        #path_to_frames='/media/sju5379/F6340D35340CF9FF/euped_assets/frames',
+        path_to_frames='/home/core/Documents/CANVAS/canvas/assets/final/frames',
         path_to_save='./viz_example'
     )
 
