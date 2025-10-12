@@ -89,19 +89,30 @@ class Dataset:
         scene = {}
         for idx in self._active_agents[timestep]:
             t_begin = self._active_intervals[idx, 0]
+            if t_begin >= timestep - history_length + 1:
+                continue
+            # edited this section due to all predictors implemented requiring
+            # contiguous history of length 8
             t_begin = int(max(t_begin, timestep-history_length+1))
+
             history_array = self._data[t_begin:timestep+1, idx]
             scene[idx] = np.copy(history_array)
 
         return scene
 
-    def get_future(self, timestep: int, future_length: int) -> Dict[int, np.ndarray]:
+    def get_future(self, timestep: int, future_length: int,history_length:int) -> Dict[int, np.ndarray]:
 
         assert timestep < self.max_timesteps
         assert future_length > 0
+        assert history_length > 0
 
         future = {}
         for idx in self._active_agents[timestep]:
+            t_begin = self._active_intervals[idx, 0]
+            if t_begin >= timestep - history_length + 1:
+                continue
+            # edited this section due to all predictors implemented requiring
+            # contiguous history of length 8
             t_end = self._active_intervals[idx, 1]
             if t_end > timestep + 1:
                 t_end = int(min(t_end, timestep + future_length + 1))

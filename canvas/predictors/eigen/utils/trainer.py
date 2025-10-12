@@ -114,7 +114,6 @@ class ETSequencedMiniBatchTrainer(ETTrainer):
 
         # Dataset preprocessing
         obs_len, pred_len = hyper_params.obs_len, hyper_params.pred_len
-        print(self.dataset_dir)
 #        self.loader_train = get_dataloader(self.dataset_dir, 'train', obs_len, pred_len, batch_size=1)
 #        self.loader_val = get_dataloader(self.dataset_dir, 'val', obs_len, pred_len, batch_size=1)
 #        self.loader_test = get_dataloader(self.dataset_dir, 'test', obs_len, pred_len, batch_size=1)

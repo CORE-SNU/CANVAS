@@ -4,11 +4,11 @@ import numpy as np
 
 import os
 import matplotlib.pyplot as plt
-
+import cv2
 from canvas.datasets import get_dataset_spec
 from canvas.datasets import RegisteredDatasets
 from canvas.controllers import GridMPC
-from canvas.envs.env_new import Environment
+from canvas.envs import Environment
 from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
 
 """
@@ -84,8 +84,15 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
             dt=env.dt,
             dataset=dataset_name,
             device='cpu'
-        )  # Trajectron++ predictor
-
+        )  # SOCIALVAE predictor
+        obj_predictor_gt=Predictors(
+            chosen_predictor="linear",
+            prediction_len=prediction_horizon,
+            history_len=history_len,
+            dt=env.dt,
+            dataset=dataset_name,
+            device='cpu'
+        )# linear predictor as comparison
         controller = GridMPC(n_steps=prediction_horizon, dt=env.dt)
         # controller_gt = GridMPC(n_steps=prediction_horizon, dt=dt)  # for GT/oracle control input
 
@@ -100,12 +107,21 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
             sample_size=20,
             offline_calibration_set=offline_calibration_set
         )
+        cp_module_gt = AdaptiveConformalPredictionModule(
+            target_miscoverage_level=0.2,
+            step_size=0.05,
+            n_scores=prediction_horizon,
+            max_interval_lengths=max_interval_lengths,
+            sample_size=20,
+            offline_calibration_set=offline_calibration_set
+        )
 
         obs, simulation_info = env.reset()
         truncated = False
-
+        r_star=0.5
         frame = 0
-
+        c=[]
+        frames=[]
         while not truncated:
             # simulation loop
 
@@ -115,11 +131,15 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
 
             # --------- Predictor (once per frame) ---------
             prediction_res = obj_predictor(obs['non-ego'])
-
+            prediction_res_gt = obj_predictor_gt(obs['non-ego'])
             # --------- CP update (once per frame) ---------
             confidence_intervals = cp_module.update(
                 obs['non-ego'],
                 prediction_res
+            )
+            confidence_intervals_gt=cp_module_gt.update(
+                obs['non-ego'],
+                prediction_res_gt
             )
 
             # --------- Controller (once per frame, with predictions) ---------
@@ -153,8 +173,17 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
             # forward the env
             action = np.array([cmd_linear_x, cmd_angular_z])
             obs, terminated, truncated, simulation_info = env.step(action)
+            ci = (confidence_intervals_gt[8]) / (confidence_intervals_gt[8]+confidence_intervals[8])
+            c.append(ci)
+            c_2 = c.copy()      # or: c_2 = list(c) or c_2 = c[:]
+            c_2.append(ci)
+            
+            fig, ax = env.render(c=c_2)
+            fig.canvas.draw()  # must draw before reading buffer
+            rgba = np.asarray(fig.canvas.buffer_rgba())        # shape: (h, w, 4), RGBA
+            rgb  = rgba[:, :, :3].copy()                        # drop alpha
+            frames.append(rgb)
 
-            fig, ax = env.render()
 
             fig.savefig(os.path.join(path_to_save, '{:03d}.png'.format(env.timestep)), bbox_inches='tight', pad_inches=0)
             plt.close()
@@ -165,6 +194,20 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
                 break
 
             frame += 1
+        if frames:
+            # ensure even dims for H.264
+            H, W = frames[0].shape[:2]
+            H2, W2 = H - (H % 2), W - (W % 2)
+
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            out_path = os.path.join(path_to_save, "trajectory.mp4")
+            writer = cv2.VideoWriter(out_path, fourcc, 1.0/env.dt, (W2, H2))
+
+            for fr in frames:
+                if fr.shape[0] != H2 or fr.shape[1] != W2:
+                    fr = fr[:H2, :W2]
+                writer.write(cv2.cvtColor(fr, cv2.COLOR_RGB2BGR))
+            writer.release()
 
     return
 
@@ -173,7 +216,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--dataset', type=str, default="zara1")
-    parser.add_argument('--predictor', type=str, default="traj")
+    parser.add_argument('--predictor', type=str, default="SocialVAE")
 
     parser.add_argument('--goal_x', type=float, default=3.0)  # 8.0 , 6.0
     parser.add_argument('--goal_y', type=float, default=6.0)  # 0.2 , -6.0

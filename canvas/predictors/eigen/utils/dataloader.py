@@ -125,7 +125,6 @@ def read_file(_path, delim='\t'):
         delim = '\t'
     elif delim == 'space':
         delim = ' '
-    print(_path)
     with open(_path, 'r') as f:
         for line in f:
             line = line.strip().split(delim)

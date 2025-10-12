@@ -35,6 +35,7 @@ class Predictors:
         """
         self._dt = dt
         name = str(chosen_predictor).strip().lower()
+        dataset=dataset.strip().lower()
 
         if name in ("linear", "lin"):
             # Linear predictor
@@ -72,22 +73,22 @@ class Predictors:
 
         elif name in ("eigen", "eigentrajectory", "eigen_traj"):
             # EigenTrajectory predictor
-            if(dataset=='ETH'):
+            if(dataset=='eth'):
                 model_dir="canvas/predictors/eigen/models/eth/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-eth.json"
-            elif(dataset=='Hotel'):
+            elif(dataset=='hotel'):
                 model_dir="canvas/predictors/eigen/models/hotel/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-hotel.json"
-            elif(dataset=='Univ'):
+            elif(dataset=='univ'):
                 model_dir="canvas/predictors/eigen/models/uni/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-uni.json"
-            elif(dataset=='Zara01'):
+            elif(dataset=='zara1' or dataset=='zara01'):
                 model_dir="canvas/predictors/eigen/models/zara01/model_best.pth"
-                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara01.json"
-            elif(dataset=='Zara02'):
+                cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara01.json"
+            elif(dataset=='zara02' or dataset=='zara2'):
                 model_dir="canvas/predictors/eigen/models/zara02/model_best.pth"
-                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara02.json"
-            elif(dataset=='Lobby'):
+                cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara02.json"
+            elif(dataset=='lobby' or dataset=='lobby_data'):
                 model_dir="canvas/predictors/eigen/models/lobby_data/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json"
             else:
@@ -113,27 +114,27 @@ class Predictors:
             )
         elif name in ("koopcast","mdnkoopman","mdn_koopman"):
             # KoopCast predictor
-            if(dataset=='ETH'):
+            if(dataset=='eth'):
                 k_path='canvas/predictors/koopcast/data/biwi_eth_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/biwi_eth_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/biwi_eth_mdn.pt'
-            elif(dataset=='Hotel'):
+            elif(dataset=='hotel'):
                 k_path='canvas/predictors/koopcast/data/biwi_hotel_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/biwi_hotel_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/biwi_hotel_mdn.pt'
-            elif(dataset=='Univ'):
+            elif(dataset=='univ'):
                 k_path='canvas/predictors/koopcast/data/univ_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/univ_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/univ_mdn.pt'
-            elif(dataset=='Zara01'):
+            elif(dataset=='zara01' or dataset=='zara1'):
                 k_path='canvas/predictors/koopcast/data/crowds_zara01_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/crowds_zara01_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/crowds_zara01_mdn.pt'
-            elif(dataset=='Zara02'):
+            elif(dataset=='zara02' or dataset=='zara2'):
                 k_path='canvas/predictors/koopcast/data/crowds_zara02_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/crowds_zara02_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/crowds_zara02_mdn.pt'
-            elif(dataset=='Lobby'):
+            elif(dataset=='lobby' or dataset=='lobby_data'):
                 k_path='canvas/predictors/koopcast/data/0_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/0_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/0_mdn.pt'
@@ -187,7 +188,7 @@ class Predictors:
                 dt=dt,
                 device=device,
                 cfg= cfg,
-                model_dir=model_dir,
+                model_path=model_path,
             )
         elif name in ("STGCNN","socialstgcnn","social_stgcnn","stgcnn","social-stgcnn"):
             from .Social_STGCNN.STGCNN_live_test import STGCNN_Predictor

@@ -12,7 +12,7 @@ class Social_VAE_Predictor(BasePredictors):
     self,
     prediction_len: int = 12,
     history_len: int = 8,
-    dt: float = 0.1,
+    dt: float = 0.4,
     device: str = "cpu",
     *,
     cfg: str = "/config/eth.py",

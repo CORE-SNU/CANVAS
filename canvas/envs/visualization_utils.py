@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Polygon
 from scipy import ndimage
@@ -77,10 +78,12 @@ def visualize_trajectory(trajectory, H, ax, c=None, **kwargs):
     if c is None:
         ax.plot(traj_image_x, traj_image_y, **kwargs)
     else:
-        assert len(c) >= len(trajectory)
+        assert len(c) >= len(trajectory), (
+    f"len(c)={len(c)} is smaller than len(trajectory)={len(trajectory)} "
+    f"(c.shape={np.shape(c)}, trajectory.shape={np.shape(trajectory)})"
+)
         colored_line(traj_image_x, traj_image_y, c[-len(trajectory):], ax, **kwargs)
     # TODO: color overlay
-
 
 def add_arrow(x, y, x_next, y_next, H, ax, arrowprops):
     data = np.array([[x, y], [x_next, y_next]])
@@ -134,6 +137,9 @@ def colored_line(x, y, c, ax, **lc_kwargs):
 
     # Default the capstyle to butt so that the line segments smoothly line up
     default_kwargs = {"capstyle": "butt", "cmap": "plasma"}
+    norm = mpl.colors.Normalize(vmin=0.0, vmax=1.0)
+    default_kwargs["norm"] = norm
+    # added to make sure the color map is the same for all plots
     default_kwargs.update(lc_kwargs)
 
     # Compute the midpoints of the line segments. Include the first and last points

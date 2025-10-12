@@ -339,3 +339,7 @@ pyrightconfig.json
 /canvas/assets/final/frames/
 /canvas/datasets/eth-ucy/
 /canvas/datasets/snu-asri/
+/viz_example/
+/CANVAS/assets/
+assets/datasets/eth-ucy/
+assets/
