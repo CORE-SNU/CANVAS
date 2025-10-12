@@ -154,21 +154,70 @@ class Predictors:
             )
         elif name in ("SocialVAE","socialvae","social_vae"):
             from .SocialVAE.social_vae_runner import Social_VAE_Predictor
+            # dataset is a string like 'ETH', 'Hotel', 'Univ', 'Zara01', 'Zara02', 'Lobby', etc.
+            key = dataset.strip().lower()
+
+            cfg_model_map = {
+                # ETH/Hotel/Univ
+                'eth':        ("/config/eth.py",        "/models/eth"),
+                'hotel':      ("/config/hotel.py",      "/models/hotel"),
+                'univ':       ("/config/univ.py",       "/models/univ"),
+
+                # Zara
+                'zara01':     ("/config/zara01.py",     "/models/zara01"),
+                'zara1':      ("/config/zara01.py",     "/models/zara01"),
+                'zara02':     ("/config/zara02.py",     "/models/zara02"),
+                'zara2':      ("/config/zara02.py",     "/models/zara02"),
+
+                # Lobby
+                'lobby':      ("/config/lobby_data.py", "/models/lobby"),
+                'lobby_data': ("/config/lobby_data.py", "/models/lobby"),
+            }
+
+            if key not in cfg_model_map:
+                raise ValueError(
+                    f"Unknown dataset '{dataset}'. "
+                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                )
+
+            cfg, model_path = cfg_model_map[key]
             self.PredictorModel=Social_VAE_Predictor(
                 prediction_len=prediction_len,
                 history_len=history_len,
                 dt=dt,
                 device=device,
-                #model_dir=model_dir,
+                cfg= cfg,
+                model_dir=model_dir,
             )
         elif name in ("STGCNN","socialstgcnn","social_stgcnn","stgcnn","social-stgcnn"):
             from .Social_STGCNN.STGCNN_live_test import STGCNN_Predictor
+            key = dataset.strip().lower()
+
+            folder_map = {
+                'eth':       'social-stgcnn-eth',
+                'hotel':     'social-stgcnn-hotel',
+                'univ':      'social-stgcnn-univ',
+                'zara01':    'social-stgcnn-zara1',   # handle 01 -> 1
+                'zara1':     'social-stgcnn-zara1',
+                'zara02':    'social-stgcnn-zara2',   # handle 02 -> 2
+                'zara2':     'social-stgcnn-zara2',
+                'lobby':     'social-stgcnn-lobby_data',
+                'lobby_data':'social-stgcnn-lobby_data',
+            }
+
+            if key not in folder_map:
+                raise ValueError(
+                    f"Unknown dataset '{dataset}'. "
+                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                )
+
+            model_dir = f"/checkpoint/{folder_map[key]}"
             self.PredictorModel=STGCNN_Predictor(
                 prediction_len=prediction_len,
                 history_len=history_len,
                 dt=dt,
                 device=device,
-                #model_dir=model_dir,
+                model_dir=model_dir,
             )
         elif name in ("pytorch", "torch"):
             self.PredictorModel=torch.load(model_dir,map_location=device)
