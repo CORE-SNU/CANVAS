@@ -1,16 +1,13 @@
 import time
 import numpy as np
-import cv2
 import pathlib
 import os
 import sys
 _DATA_DIR = os.path.dirname(__file__)
 
 sys.path.append(_DATA_DIR)
-from canvas.datasets import get_dataset_spec, _load_background_image
+from canvas.datasets import get_dataset_spec
 from canvas import dynamic_observation_filter
-from save_ci import save_frame_mpl_traj, save_ci_traj_positions_csv, save_ci_ctrl_local_csv, project_ctrl_step_to_local_xy
-from sim_raw_overlay import RawVideoOverlay
 
 """
 Simulation pipeline (per frame):
@@ -32,7 +29,8 @@ class Simulation():
         self.goal = goal
         self.max_ped = max_pedestrian
         self.persistent_static_boxes = persistent_static_boxes
-        self.dataset = dataset
+        self.dataset_obj = dataset
+        self.dataset_name = dataset.name
         self.prediction_len = prediction_len
         self.history_len = history_len
         self.dt = dt
@@ -91,46 +89,32 @@ class Simulation():
         buffer_control = []
         ci_data = []
 
-        spec = get_dataset_spec(self.dataset)
+        spec = get_dataset_spec(self.dataset_name)
 
         cp_module = self.cp_module
         cp_module_gt = self.cp_module
         buffer_vel = []
         done = False
 
-        # iteration output dir for 'result' & setting for saving-to-video
-        iter_out_dir = pathlib.Path("result") / f"iter_{times+1:03d}"
-        iter_out_dir.mkdir(parents=True, exist_ok=True)
-        overlay = None
-        if self.use_overlay:
-            out_mp4_overlay = iter_out_dir / f"sim_iter_{times+1:03d}_raw_overlay.mp4"
-            overlay = RawVideoOverlay(
-                dataset=self.dataset,
-                out_video_path=str(out_mp4_overlay),
-                frame_offset=self.frame_offset,
-                sim_dt=self.dt,
-                extracted_fps=self.extracted_fps,
-                output_fps=self.output_fps
-            )
-        video_writer = None
-        video_path = iter_out_dir / f"sim_iter_{times+1:03d}_mpl.mp4"
-
-        position_x, position_y, orientation_z = self.env.reset()
+        obs, side = self.env.reset()
+        ego = obs['ego']
+        position_x, position_y, orientation_z = ego['position_x'], ego['position_y'], ego['orientation_z']
+        last_cmd = (0.0, 0.0)
         begin = time.time()
 
         self.set_buffer()       
 
         while not done:
             detect_time = time.time()
-            linear_x, angular_z = self.env.get_velocity()
+            linear_x, angular_z = last_cmd
 
             # record robot trajectory
             buffer_pos_x.append(position_x)
             buffer_pos_y.append(position_y)
 
             # --------- Observations (history & GT futures) ---------
-            observation = self.env._get_obs()
-            observation_future_true = self.env._get_obs_future()
+            observation = obs
+            observation_future_true = side.get('future', {})
             valid_obs, valid_obs_future_true = dynamic_observation_filter(
                 observation, position_x, position_y, self.prediction_len, observation_future_true, self.max_ped
             )
@@ -174,43 +158,15 @@ class Simulation():
             )
 
             # --------- Visualization ---------
-            try:
-                if self.use_overlay:
-                    bg_img = _load_background_image(overlay._frame_path_for_current(), spec.bg.rotate90)
-                    H = overlay.H
-                else:
-                    bg_img = _load_background_image(spec.bg.path, spec.bg.rotate90)
-                    H = None
-                ci_data.append(rstar/(rstar+confidence_intervals[CI_t]))
-                frame_png = save_frame_mpl_traj(
-                    outdir=str(iter_out_dir),
-                    frame_idx=frame,
-                    static_boxes=self.persistent_static_boxes,
-                    robot_xy=(position_x, position_y),
-                    robot_traj_xy=(buffer_pos_x, buffer_pos_y),
-                    goal_xy=self.goal,
-                    valid_obs=valid_obs if valid_obs else {},
-                    valid_obs_future_true=valid_obs_future_true if valid_obs_future_true else {},
-                    prediction_res=prediction_res if isinstance(prediction_res, dict) else {},
-                    r_star=rstar,
-                    background_image=bg_img,
-                    homography_H=H,  # if use_overlay=True
-                    cbar_label ='CI Control Prediction',
-                    ci_data=ci_data
-                )
-                if self.save_video:
-                    img = cv2.imread(frame_png)
-                    if img is not None:
-                        if video_writer is None:
-                            h, w = img.shape[:2]
-                            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                            video_writer = cv2.VideoWriter(str(video_path), fourcc, self.video_fps, (w, h))
-                        video_writer.write(img)
-            except Exception as e:
-                print(f"[WARN] result save failed at frame {frame}: {e}")
-
-            if overlay is not None:
-                overlay.step(valid_obs, valid_obs_future_true, prediction_res)
+            ci_data.append(rstar/(rstar + confidence_intervals[CI_t]))
+            if self.save_video:
+                try:
+                    try:
+                        self.env.render(ci_series=ci_data, cbar_label='CI Control Prediction')
+                    except TypeError:
+                        self.env.render()
+                except Exception as e:
+                    print(f"[WARN] Render failed at frame {frame}: {e}")
             
             # --------- Feasibility handling ---------
             buffer_infeasibility.append(info.get('feasible', True))
@@ -246,8 +202,12 @@ class Simulation():
                 cmd_linear_x, cmd_angular_z = velocity[0]
             else:
                 cmd_linear_x, cmd_angular_z = 0.0, 0.0
-            robot_pose, done = self.env.step([cmd_linear_x, cmd_angular_z])
-            position_x, position_y, orientation_z = robot_pose
+            obs, terminated, truncated, info = self.env.step([cmd_linear_x, cmd_angular_z])
+            ego = obs['ego']
+            position_x, position_y, orientation_z = ego['position_x'], ego['position_y'], ego['orientation_z']
+            done = terminated or truncated
+            side = info
+            last_cmd = (cmd_linear_x, cmd_angular_z)
             print(frame, position_x, position_y, orientation_z, cmd_linear_x, cmd_angular_z, time.time() - detect_time)
 
             # --------- Accumulate costs ---------
@@ -258,12 +218,7 @@ class Simulation():
 
             frame += 1
             buffer_vel = velocity
-        
-        # ---- Close writer ----
-        if video_writer is not None:
-            video_writer.release()
-        if overlay is not None:
-            overlay.close()
+
         #if ci_data:
         #    save_ci_traj_positions_csv(iter_out_dir=iter_out_dir, iteration_index=times+1, rows=ci_data)
 
