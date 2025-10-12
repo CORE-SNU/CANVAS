@@ -32,9 +32,9 @@ def dynamic_observation_filter(observation, position_x, position_y, prediction_l
         initial_positions = np.array([traj[-1, :2] for traj in dynamic_obs.values()])
         robot_pos = np.array([position_x, position_y])
         distances = np.sqrt(np.sum((initial_positions - robot_pos) ** 2, axis=1))
-        if np.any(distances <= 0.7):
-            print("Collision!")
-            collision_count += int(np.sum(distances <= 0.7))
+        #if np.any(distances <= 0.7):
+        #    print("Collision!")
+        #    collision_count += int(np.sum(distances <= 0.7))
     if isinstance(observation_future_true,dict):
         return dynamic_obs, valid_obs_future_true
     else:

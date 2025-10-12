@@ -19,7 +19,7 @@ class Predictors:
                  model_dir='canvas/predictors/eigen/models/lobby_data/model_best.pth',
                  device='cpu',
                  dataset='Lobby',
-                 cfg='src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
+                 cfg='canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json'):
         """Simple access class for different predictors.
 
         Args:
@@ -45,7 +45,7 @@ class Predictors:
                 dt=dt,
             )
 
-        elif name in ["trajectron", "traj", "tpp"]:
+        elif name in ("trajectron", "traj", "tpp"):
 
             trajectron_dirnames = {
                 'eth': 'eth_vel_ar3',
@@ -72,28 +72,28 @@ class Predictors:
 
         elif name in ("eigen", "eigentrajectory", "eigen_traj"):
             # EigenTrajectory predictor
-            if(dataset=='ETH'):
+            if(dataset=='eth'):
                 model_dir="canvas/predictors/eigen/models/eth/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-eth.json"
-            elif(dataset=='Hotel'):
+            elif(dataset=='hotel'):
                 model_dir="canvas/predictors/eigen/models/hotel/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-hotel.json"
-            elif(dataset=='Univ'):
+            elif(dataset=='univ'):
                 model_dir="canvas/predictors/eigen/models/uni/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-uni.json"
-            elif(dataset=='Zara01'):
+            elif(dataset=='zara1'):
                 model_dir="canvas/predictors/eigen/models/zara01/model_best.pth"
-                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara01.json"
-            elif(dataset=='Zara02'):
+                cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara01.json"
+            elif(dataset=='zara2'):
                 model_dir="canvas/predictors/eigen/models/zara02/model_best.pth"
-                cfg="src/canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara02.json"
-            elif(dataset=='Lobby'):
+                cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara02.json"
+            elif(dataset=='snu-asri'):
                 model_dir="canvas/predictors/eigen/models/lobby_data/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json"
             else:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
-                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri."
                 )
 
             self.PredictorModel = EigenTrajectoryPredictor(
@@ -113,34 +113,34 @@ class Predictors:
             )
         elif name in ("koopcast","mdnkoopman","mdn_koopman"):
             # KoopCast predictor
-            if(dataset=='ETH'):
+            if(dataset=='eth'):
                 k_path='canvas/predictors/koopcast/data/biwi_eth_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/biwi_eth_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/biwi_eth_mdn.pt'
-            elif(dataset=='Hotel'):
+            elif(dataset=='hotel'):
                 k_path='canvas/predictors/koopcast/data/biwi_hotel_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/biwi_hotel_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/biwi_hotel_mdn.pt'
-            elif(dataset=='Univ'):
+            elif(dataset=='univ'):
                 k_path='canvas/predictors/koopcast/data/univ_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/univ_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/univ_mdn.pt'
-            elif(dataset=='Zara01'):
+            elif(dataset=='zara1'):
                 k_path='canvas/predictors/koopcast/data/crowds_zara01_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/crowds_zara01_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/crowds_zara01_mdn.pt'
-            elif(dataset=='Zara02'):
+            elif(dataset=='zara2'):
                 k_path='canvas/predictors/koopcast/data/crowds_zara02_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/crowds_zara02_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/crowds_zara02_mdn.pt'
-            elif(dataset=='Lobby'):
+            elif(dataset=='snu-asri'):
                 k_path='canvas/predictors/koopcast/data/0_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/0_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/0_mdn.pt'
             else:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
-                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri."
                     )
 
             self.PredictorModel=Koopcast_predictor(

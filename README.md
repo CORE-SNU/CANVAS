@@ -2,9 +2,10 @@
 Below is a sample run code for the bare minimum imports required to call the predictors and competency index implemented into our code.
 
 ```python
-from canvas.datasets import get_dataset_spec
+from canvas.datasets import Dataset, get_dataset_spec, _load_background_image, RegisteredDatasets
 from canvas.controllers.controller import controllers
-from canvas import Environment, AdaptiveConformalPredictionModule, Predictors, region_to_box
+from canvas.envs.env_new import Environment
+from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
 from simulation import Simulation
 
 # -----------------------------
@@ -24,26 +25,20 @@ def main(dataset, predictor, controller,
     # Environment setting
     t_begin = t_begin # time step to begin environment in dataset
     t_end   = t_end   # time step to end environment in dataset
-    dataset = dataset
-    datasets_dir = os.path.join(_DATA_DIR, "canvas", "datasets")
-    fname_map = {
-        "Lobby":  "0.npy",
-        "ETH":    "biwi_eth.npy",
-        "Hotel":  "biwi_hotel.npy",
-        "Zara01": "crowds_zara01.npy",
-        "Zara02": "crowds_zara02.npy",
-        "Univ":   "students003.npy",
-    }
-    npy_path = os.path.join(datasets_dir, fname_map[dataset])
-    init_robot_pose = np.array([start_x, start_y, np.pi / 2.]) # Start position for control test
+    dataset_obj = RegisteredDatasets[dataset]
+    init_robot_pose = {"position_x": start_x, "position_y": start_y, "orientation_z": np.pi/2.} # Start position for control test
     goal = np.array([goal_x, goal_y]) # Goal position for control test
     persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
     env = Environment(
-            filepath=npy_path,
-            dt=dt,
-            init_robot_pose=init_robot_pose,
+            dataset=dataset_obj,
+            init_robot_state=init_robot_pose,
+            goal_pos=goal,
             t_begin=t_begin,
-            t_end=t_end
+            t_end=t_end,
+            history_len=history_len,
+            prediction_horizon=prediction_len,
+            path_to_frames='~/canvas/assets/final/frames',
+            path_to_save='./viz_example'
         )
     # CP module setting (use ACP)
     max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1) # Maximum interval length setting
@@ -64,7 +59,7 @@ def main(dataset, predictor, controller,
                      goal=goal,
                      max_pedestrian=max_ped,
                      persistent_static_boxes=persistent_static_boxes,
-                     dataset=dataset,
+                     dataset=dataset_obj,
                      prediction_len=prediction_len,
                      history_len=history_len,
                      dt=dt,
@@ -75,9 +70,10 @@ def main(dataset, predictor, controller,
                      extracted_fps=extracted_fps,
                      output_fps=output_fps
                     )
-    # Run control test for dedicated numbers of iterations 'num_iter'
+    
     for times in range(num_iter):
         sim.run(times=times)
+
 ```
 
 ---
@@ -89,13 +85,13 @@ You can run the simulation with "main_program.py" with some dedicated variables
 * --start_x, --start_y : Start position for control test (default : (0.0, 4.0))
 * --goal_x, --goal_y : Goal position for control test (default : (8.0, 4.2))
 * --num_iter : Number of iterations for simulation (default : 1)
-* --dataset : Select the dataset (default : Zara01)
-    * ETH
-    * Hotel
-    * Univ
-    * Zara01
-    * Zara02
-    * Lobby
+* --dataset : Select the dataset (default : zara1)
+    * eth
+    * hotel
+    * univ
+    * zara1
+    * zara2
+    * snu-asri
 * --predictor : Select the predictor (default : traj)
     * **Linear predictor** `linear`
     * **Gaussian Process predictor** `gp`
@@ -119,7 +115,7 @@ You can run the simulation with "main_program.py" with some dedicated variables
 * --frame_offset : Align sim time to real frames (index shift, default : 40)
 * --extracted_fps : FPS used by 'video_parser.py' to extract frames (default : 10.0)
 * --output_fps : FPS of the output mp4 file, defaults to extracted_fps (default : 10.0)
-* --max_ped : Maximum number of pedestrians to consider for control problem, and the other pedestrians that exceed the 'max_ped' will be ignored (default : 4) 
+* --max_ped : Maximum number of pedestrians to consider for control problem, and the other pedestrians that exceed the 'max_ped' will be ignored (default : 4)  
 
 ## To-do-list
 - [x] MPPI implementation
