@@ -91,11 +91,15 @@ class Dataset:
             t_begin = self._active_intervals[idx, 0]
             if t_begin >= timestep - history_length + 1:
                 continue
+            
             # edited this section due to all predictors implemented requiring
             # contiguous history of length 8
             t_begin = int(max(t_begin, timestep-history_length+1))
 
             history_array = self._data[t_begin:timestep+1, idx]
+            if not np.isfinite(history_array).all():
+                continue
+            #added this to avoid issues with incomplete history
             scene[idx] = np.copy(history_array)
 
         return scene
@@ -111,8 +115,13 @@ class Dataset:
             t_begin = self._active_intervals[idx, 0]
             if t_begin >= timestep - history_length + 1:
                 continue
+            t_begin = int(max(t_begin, timestep-history_length+1))
+
+            history_array = self._data[t_begin:timestep+1, idx]
+            if not np.isfinite(history_array).all():
+                continue
             # edited this section due to all predictors implemented requiring
-            # contiguous history of length 8
+            # contiguous history of length 8 without nans
             t_end = self._active_intervals[idx, 1]
             if t_end > timestep + 1:
                 t_end = int(min(t_end, timestep + future_length + 1))

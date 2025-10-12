@@ -80,7 +80,15 @@ class Environment:
         self._th_traj = None
 
         # homography matrix (for visualization)
-        homography_path = ASSET_DIR / 'homographies' / (dataset.name + '.txt')
+        if "zara01" in dataset.name:
+            dataset_label = "zara1"
+        elif dataset.name == "snu-asri":
+            dataset_label = "Lobby"
+        else:
+            dataset_label = dataset.name
+        
+        homography_path = ASSET_DIR / 'homographies' / (dataset_label + '.txt')
+        self.dataset_label=dataset_label
         assert os.path.exists(homography_path)
         self._H = np.loadtxt(homography_path, dtype=float)
 
@@ -187,10 +195,16 @@ class Environment:
         assert self._path_to_frames is not None and self._path_to_save is not None
         plt.clf(), plt.cla()
         fig, ax = plt.subplots()
-        frame_path = os.path.join(self._path_to_frames, self._dataset.name, '{}.png'.format(self._step))
+        if str(getattr(self, "dataset_label", "")).lower() == "lobby":
+            frame_path = "lobby3.png"  # local file
+        else:
+            frame_path = os.path.join(self._path_to_frames, self.dataset_label, f"{self._step}.png")
+        #frame_path = os.path.join(self._path_to_frames, self.dataset_label, '{}.png'.format(self._step))
         image = cv2.imread(frame_path)
-
-        ax.imshow(image, cmap='gray', alpha=0.6)
+        if self.dataset_label.lower() == "lobby":
+            ax.imshow(image, cmap='gray', alpha=0.6,extent=(-3.0, 8.5, -9.5, 1.5))
+        else:
+            ax.imshow(image, cmap='gray', alpha=0.6)
 
 
         ax.axis('off')
@@ -269,102 +283,12 @@ class Environment:
         visualize_point(self._goal, H, ax, color='tab:pink', marker='*', s=160, label='goal', zorder=500)
 
         h, w, _ = image.shape
-        ax.set_xlim(0, w)
-        ax.set_ylim(h, 0)
-        ax.legend()
-        # fig.savefig(os.path.join(self._path_to_save, '{:03d}.png'.format(self._step)), bbox_inches='tight', pad_inches=0)
-        # plt.close()
-
-        return fig, ax
-    def render_CI(self, **kwargs):
-        assert self._path_to_frames is not None and self._path_to_save is not None
-        plt.clf(), plt.cla()
-        fig, ax = plt.subplots()
-        frame_path = os.path.join(self._path_to_frames, self._dataset.name, '{}.png'.format(self._step))
-        image = cv2.imread(frame_path)
-
-        ax.imshow(image, cmap='gray', alpha=0.6)
-
-
-        ax.axis('off')
-
-        H = self._H
-
-        # visualization parameters
-        ego_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2}
-        non_ego_h_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 1}
-        non_ego_f_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 1, 'color': 'tab:blue', 'alpha': 0.8, 'label': 'future'}
-        arrowprops = {'arrowstyle': 'Fancy', 'mutation_scale': 30}
-
-        if 'c' not in kwargs:
-            # no color overlay -> default colors
-            ego_params['color'] = 'cyan'
-            non_ego_h_params['color'] = 'tab:red'
-
-        kwargs['c'] = None
-
-        # ego-robot
-        ego_pos_trajectory = np.array([self._x_traj, self._y_traj]).T
-        visualize_trajectory(
-            trajectory=ego_pos_trajectory,
-            H=H,
-            ax=ax,
-            c=kwargs['c'],
-            **ego_params
-        )
-        draw_robot(ax, H, self._x, self._y, self._th, robot_img=self._robot_img)        # robot figure
-
-        # non-ego agents: history
-        scene = self._dataset.get_scene(timestep=self._step, history_length=self._step-self._first_step)
-
-        for _, h in scene.items():
-            visualize_trajectory(
-                trajectory=h,
-                H=H,
-                ax=ax,
-                c=kwargs['c'],
-                **non_ego_h_params
-            )
-
-        # non-ego agents: future
-        future_scene = self._dataset.get_future(timestep=self._step, future_length=self._prediction_len,history_length=self._step-self._first_step)
-        labeled = False
-        for _, f in future_scene.items():
-            visualize_trajectory(
-                trajectory=f,
-                H=H,
-                ax=ax,
-                **non_ego_f_params
-            )
-            if not labeled:
-                del non_ego_f_params['label']
-                labeled = True
-
-        # non-ego agents: draw arrows indicating the directions of the agents
-        for node in (scene.keys() & future_scene.keys()):
-            h, f = scene[node], future_scene[node]
-            x_next, y_next = f[0]
-            x, y = h[-1]
-            add_arrow(x=x, y=y, x_next=x_next, y_next=y_next, H=H, ax=ax, arrowprops=arrowprops)
-
-        norm = mpl.colors.Normalize(vmin=0., vmax=1., clip=True)
-        cmap = cm.get_cmap('plasma')
-
-        mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
-        mappable.set_array([])
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.05)
-
-        cb = plt.colorbar(mappable, cax=cax)
-        cb.set_label('competency index', rotation=90, labelpad=12, va='center')
-
-        # mark the goal position
-        visualize_point(self._goal, H, ax, color='tab:pink', marker='*', s=160, label='goal', zorder=500)
-
-        h, w, _ = image.shape
-        ax.set_xlim(0, w)
-        ax.set_ylim(h, 0)
+        if self.dataset_label.lower() == "lobby":
+            ax.set_xlim(-3.0, 8.5)
+            ax.set_ylim(1.5, -9.5)
+        else:
+            ax.set_xlim(0, w)
+            ax.set_ylim(h, 0)
         ax.legend()
         # fig.savefig(os.path.join(self._path_to_save, '{:03d}.png'.format(self._step)), bbox_inches='tight', pad_inches=0)
         # plt.close()

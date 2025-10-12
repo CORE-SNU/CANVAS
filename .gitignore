@@ -343,3 +343,5 @@ pyrightconfig.json
 /CANVAS/assets/
 assets/datasets/eth-ucy/
 assets/
+viz_example_snippets_id/
+viz_example_lobby/

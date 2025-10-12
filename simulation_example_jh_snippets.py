@@ -32,11 +32,10 @@ Simulation pipeline (per frame):
 # Main
 # -----------------------------
 def main(goal_x, goal_y, num_iter, dataset_name, predictor):
-    path_to_save = 'viz_example_lobby'
+    path_to_save = 'viz_example_snippets_id'
     _DATA_DIR = os.path.dirname(os.path.dirname(__file__))
     # TODO: fix this
-    dataset_label = "Lobby" if dataset_name == "snu-asri" else dataset_name
-
+    dataset_label = "zara1" if "zara01" in dataset_name else dataset_name
     persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset_label).static_regions]
 
     init_robot_pose = {
@@ -191,7 +190,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
             plt.close()
 
             # --------- Goal check ---------
-            if terminated:
+            if terminated or env.timestep>= dataset.max_timesteps - 1:
                 print('[frame {}] Goal reached!'.format(frame))
                 break
 
@@ -217,8 +216,8 @@ if __name__ == "__main__":
     # TODO: write -h?
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--dataset', type=str, default="zara1")
-    parser.add_argument('--predictor', type=str, default="STGCNN")
+    parser.add_argument('--dataset', type=str, default="zara01_raw_mean_stats_non_ood_seg1")
+    parser.add_argument('--predictor', type=str, default="SocialVAE")
 
     parser.add_argument('--goal_x', type=float, default=3.0)  # 8.0 , 6.0
     parser.add_argument('--goal_y', type=float, default=6.0)  # 0.2 , -6.0
