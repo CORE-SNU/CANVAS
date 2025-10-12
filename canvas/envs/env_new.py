@@ -80,7 +80,15 @@ class Environment:
         self._th_traj = None
 
         # homography matrix (for visualization)
-        homography_path = ASSET_DIR / 'homographies' / (dataset.name + '.txt')
+        if "zara01" in dataset.name:
+            dataset_label = "zara1"
+        elif dataset.name == "snu-asri":
+            dataset_label = "Lobby"
+        else:
+            dataset_label = dataset.name
+        
+        homography_path = ASSET_DIR / 'homographies' / (dataset_label + '.txt')
+        self.dataset_label=dataset_label
         assert os.path.exists(homography_path)
         self._H = np.loadtxt(homography_path, dtype=float)
 
@@ -155,7 +163,7 @@ class Environment:
         return {
             'distance_to_goal': ((self._x - self._goal[0]) ** 2 + (self._y - self._goal[1]) ** 2) ** .5,
             'goal_reached': np.abs(self._x - self._goal[0]) < 0.3 and np.abs(self._y - self._goal[1]) < 0.3,
-            'future': self._dataset.get_future(timestep=self._step, future_length=self._prediction_len)
+            'future': self._dataset.get_future(timestep=self._step, future_length=self._prediction_len, history_length=self._history_len)
         }
 
     def step(self, action):
@@ -187,10 +195,16 @@ class Environment:
         assert self._path_to_frames is not None and self._path_to_save is not None
         plt.clf(), plt.cla()
         fig, ax = plt.subplots()
-        frame_path = os.path.join(self._path_to_frames, self._dataset.name, '{}.png'.format(self._step))
+        if str(getattr(self, "dataset_label", "")).lower() == "lobby":
+            frame_path = "lobby3.png"  # local file
+        else:
+            frame_path = os.path.join(self._path_to_frames, self.dataset_label, f"{self._step}.png")
+        #frame_path = os.path.join(self._path_to_frames, self.dataset_label, '{}.png'.format(self._step))
         image = cv2.imread(frame_path)
-
-        ax.imshow(image, cmap='gray', alpha=0.6)
+        if self.dataset_label.lower() == "lobby":
+            ax.imshow(image, cmap='gray', alpha=0.6,extent=(-3.0, 8.5, -9.5, 1.5))
+        else:
+            ax.imshow(image, cmap='gray', alpha=0.6)
 
 
         ax.axis('off')
@@ -207,8 +221,7 @@ class Environment:
             # no color overlay -> default colors
             ego_params['color'] = 'cyan'
             non_ego_h_params['color'] = 'tab:red'
-
-        kwargs['c'] = None
+            kwargs['c'] = None
 
         # ego-robot
         ego_pos_trajectory = np.array([self._x_traj, self._y_traj]).T
@@ -234,7 +247,7 @@ class Environment:
             )
 
         # non-ego agents: future
-        future_scene = self._dataset.get_future(timestep=self._step, future_length=self._prediction_len)
+        future_scene = self._dataset.get_future(timestep=self._step, future_length=self._prediction_len,history_length=self._step-self._first_step)
         labeled = False
         for _, f in future_scene.items():
             visualize_trajectory(
@@ -270,8 +283,12 @@ class Environment:
         visualize_point(self._goal, H, ax, color='tab:pink', marker='*', s=160, label='goal', zorder=500)
 
         h, w, _ = image.shape
-        ax.set_xlim(0, w)
-        ax.set_ylim(h, 0)
+        if self.dataset_label.lower() == "lobby":
+            ax.set_xlim(-3.0, 8.5)
+            ax.set_ylim(1.5, -9.5)
+        else:
+            ax.set_xlim(0, w)
+            ax.set_ylim(h, 0)
         ax.legend()
         fig.savefig(os.path.join(self._path_to_save, '{:03d}.png'.format(self._step)), bbox_inches='tight', pad_inches=0)
         plt.close()

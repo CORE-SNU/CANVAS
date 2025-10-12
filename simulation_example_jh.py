@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from canvas.datasets import get_dataset_spec
 from canvas.datasets import RegisteredDatasets
 from canvas.controllers import GridMPC
-from canvas.envs.env_new import Environment
+from canvas.envs import Environment
 from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
 
 """
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--dataset', type=str, default="zara1")
-    parser.add_argument('--predictor', type=str, default="traj")
+    parser.add_argument('--predictor', type=str, default="SocialVAE")
 
     parser.add_argument('--goal_x', type=float, default=3.0)  # 8.0 , 6.0
     parser.add_argument('--goal_y', type=float, default=6.0)  # 0.2 , -6.0

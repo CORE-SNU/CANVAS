@@ -39,19 +39,19 @@ def load_dataset(name_or_path: Union[str, os.PathLike]):
     key = s.lower()
     
     if key in ("eth", "biwi_eth", "biwi-eth"):
-        fname = "biwi_eth.npy"
+        fname = "eth-ucy/biwi_eth.npy"
     elif key in ("hotel", "biwi_hotel", "biwi-hotel"):
-        fname = "biwi_hotel.npy"
+        fname = "eth-ucy/biwi_hotel.npy"
     elif key in ("zara1", "zara01", "crowds_zara01", "zara_1"):
-        fname = "crowds_zara01.npy"
+        fname = "eth-ucy/crowds_zara01.npy"
     elif key in ("zara2", "zara02", "crowds_zara02", "zara_2"):
-        fname = "crowds_zara02.npy"
+        fname = "eth-ucy/crowds_zara02.npy"
     elif key in ("students001", "students1", "ucy_students1", "univ1"):
-        fname = "students001.npy"
+        fname = "eth-ucy/students001.npy"
     elif key in ("students003", "students3", "univ", "ucy_univ", "university"):
-        fname = "students003.npy"
+        fname = "eth-ucy/students003.npy"
     elif key in ("lobby3"):
-        fname = "0.npy"
+        fname = "snu-asri/0.npy"
     else:
         raise ValueError(
             f"Unknown dataset code '{name_or_path}'. "
