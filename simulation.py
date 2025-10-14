@@ -206,35 +206,29 @@ class Simulation():
                 # If the current does not provide the controller API, use 'traj' first
                 E_t = self.sf(x=obs['ego'], y_future=gt_future, yhat_future=prediction_res, controller=self.controller)
 
-            eps = 1e-12  # 0-division º¸È£
+            eps = 1e-12  
             ci_scheme = "pairwise"
             if ci_scheme == "static":
-                # (A) »ó¼ö ÂüÁ¶Çü: E_ref¸¦ °íÁ¤ »ó¼ö·Î
                 if self.E_ref_fixed is None:
                     if self.ci_boot > 0:
-                        # ¿ö¹Ö¾÷ ¼öÁý Áß
                         self._E_boot.append(E_t)
                         if len(self._E_boot) < self.ci_boot:
-                            # ÀÓ½Ã Ç¥½Ã(¼±ÅÃ): r_star·Î °¡´Â ÀÓ½Ã°ª
                             E_ref_now = self.r_star
                             I_t = E_ref_now / (E_t + E_ref_now + eps)
                             self._ci_series.append(I_t)
                             fig, ax = self.env.render(c=self._ci_series + [I_t])
                             continue
                         else:
-                            # ºÎÆ®½ºÆ®·¦À¸·Î '°íÁ¤' E_ref °áÁ¤ (¿©ÀüÈ÷ »ó¼ö)
                             self.E_ref_fixed = float(np.quantile(self._E_boot, self.ci_ref_q))
                             if self.E_ref_fixed <= 0:
-                                self.E_ref_fixed = self.r_star  # ¾ÈÀü °¡µå
+                                self.E_ref_fixed = self.r_star  
                     else:
-                        # ºÎÆ®½ºÆ®·¦À» ¾²Áö ¾Ê´Â °æ¿ì: Áï½Ã »ó¼ö ¼³Á¤
                         self.E_ref_fixed = float(self.r_star)
 
                 E_ref_now = float(self.E_ref_fixed)
                 I_t = E_ref_now / (E_t + E_ref_now + eps)
 
             elif ci_scheme == "pairwise":
-                # (B) ½Ö´ë ºñ±³Çü: E_ref = E_base_t (½Ã°£¸¶´Ù ´Þ¶óÁü)  ¡æ º¸Áõ(ÇÏÇÑ) ¾øÀ½, ÇÏÁö¸¸ Æ©´× ºÒÇÊ¿ä
                 if obj_predictor_gt is None:
                     raise RuntimeError("pairwise CI needs a baseline predictor (e.g., linear)")
                 baseline_pred = prediction_res_gt
