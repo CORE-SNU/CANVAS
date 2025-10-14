@@ -62,7 +62,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
         t_end=t_end,
         history_len=history_len,
         prediction_horizon=prediction_horizon,
-        path_to_frames='/home/core/Documents/CANVAS/canvas/assets/final/frames',
+        path_to_frames='/home/snowhan/CANVAS/canvas/assets/final/frames',
         # directory from which the parsed frames are loaded
         path_to_save='./'+path_to_save  # directory to save the visualization result
     )

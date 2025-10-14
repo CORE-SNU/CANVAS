@@ -8,7 +8,7 @@ import cv2
 from canvas.datasets import get_dataset_spec
 from canvas.datasets import RegisteredDatasets
 from canvas.controllers import GridMPC
-from canvas.envs.env_new import Environment
+from canvas.envs import Environment
 from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
 
 """
@@ -32,7 +32,7 @@ Simulation pipeline (per frame):
 # Main
 # -----------------------------
 def main(goal_x, goal_y, num_iter, dataset_name, predictor):
-    path_to_save = 'viz_example'
+    path_to_save = 'viz_example_snippets_id'
     _DATA_DIR = os.path.dirname(os.path.dirname(__file__))
     # TODO: fix this
     dataset_label = "zara1" if "zara01" in dataset_name else dataset_name
@@ -61,7 +61,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
         t_end=t_end,
         history_len=history_len,
         prediction_horizon=prediction_horizon,
-        path_to_frames='/home/core/Documents/CANVAS/canvas/assets/final/frames',
+        path_to_frames='/home/snowhan/CANVAS/canvas/assets/final/frames',
         # directory from which the parsed frames are loaded
         path_to_save='./'+path_to_save  # directory to save the visualization result
     )
@@ -142,8 +142,6 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
                 obs['non-ego'],
                 prediction_res_gt
             )
-            print("Conf_pred: ", confidence_intervals)
-            print("Conf_gt: ", confidence_intervals_gt)
 
             # --------- Controller (once per frame, with predictions) ---------
             velocity, controller_info, minimum, intermediate, terminal, control, minimal = controller(
@@ -180,8 +178,6 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
             c.append(ci)
             c_2 = c.copy()      # or: c_2 = list(c) or c_2 = c[:]
             c_2.append(ci)
-
-            print("CI: ", ci)
             
             fig, ax = env.render(c=c_2)
             fig.canvas.draw()  # must draw before reading buffer
@@ -220,8 +216,8 @@ if __name__ == "__main__":
     # TODO: write -h?
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--dataset', type=str, default="zara1")
-    parser.add_argument('--predictor', type=str, default="eigen")
+    parser.add_argument('--dataset', type=str, default="zara01_raw_mean_stats_non_ood_seg1")
+    parser.add_argument('--predictor', type=str, default="SocialVAE")
 
     parser.add_argument('--goal_x', type=float, default=3.0)  # 8.0 , 6.0
     parser.add_argument('--goal_y', type=float, default=6.0)  # 0.2 , -6.0
