@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Polygon
 from scipy import ndimage
@@ -134,6 +135,8 @@ def colored_line(x, y, c, ax, **lc_kwargs):
 
     # Default the capstyle to butt so that the line segments smoothly line up
     default_kwargs = {"capstyle": "butt", "cmap": "plasma"}
+    norm = mpl.colors.Normalize(vmin=0.0, vmax=1.0)
+    default_kwargs["norm"] = norm
     default_kwargs.update(lc_kwargs)
 
     # Compute the midpoints of the line segments. Include the first and last points

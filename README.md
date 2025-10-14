@@ -8,6 +8,9 @@ from canvas.envs.env_new import Environment
 from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
 from simulation import Simulation
 
+# -----------------------------
+# Main
+# -----------------------------
 def main(dataset, predictor, controller, 
          prediction_len, history_len, start_x, start_y, dt, goal_x, goal_y, max_ped, t_begin, t_end,
          num_iter, video_fps, save_video, frame_offset, extracted_fps, output_fps):
@@ -27,17 +30,45 @@ def main(dataset, predictor, controller,
     goal = np.array([goal_x, goal_y]) # Goal position for control test
     persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
     env = Environment(
-            ...
+            dataset=dataset_obj,
+            init_robot_state=init_robot_pose,
+            goal_pos=goal,
+            t_begin=t_begin,
+            t_end=t_end,
+            history_len=history_len,
+            prediction_horizon=prediction_len,
+            path_to_frames='~/canvas/assets/final/frames',
+            path_to_save='./viz_example'
         )
     # CP module setting (use ACP)
     max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1) # Maximum interval length setting
     offline_calibration_set = {i: [] for i in range(prediction_len)}
-    cp_module = AdaptiveConformalPredictionModule(...)
+    cp_module = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
+                                                  step_size=0.05,
+                                                  n_scores=prediction_len,
+                                                  max_interval_lengths=max_interval_lengths,
+                                                  sample_size=20,
+                                                  offline_calibration_set=offline_calibration_set)
     # Choose controller for control test
     controller = controllers(chosen_controller=controller,prediction_len=prediction_len,dt=dt)
     # Control test simulation setting
-    sim = Simulation(
-                     ...
+    sim = Simulation(environment=env, 
+                     predictor=obj_predictor,
+                     controller=controller,
+                     cp_module=cp_module,
+                     goal=goal,
+                     max_pedestrian=max_ped,
+                     persistent_static_boxes=persistent_static_boxes,
+                     dataset=dataset_obj,
+                     prediction_len=prediction_len,
+                     history_len=history_len,
+                     dt=dt,
+                     save_video=save_video,
+                     video_fps=video_fps,
+                     use_overlay=True,
+                     frame_offset=frame_offset,
+                     extracted_fps=extracted_fps,
+                     output_fps=output_fps
                     )
     
     for times in range(num_iter):
