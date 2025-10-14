@@ -2,7 +2,7 @@
 Below is a sample run code for the bare minimum imports required to call the predictors and competency index implemented into our code.
 
 ```python
-from canvas.datasets import Dataset, get_dataset_spec, _load_background_image, RegisteredDatasets
+from canvas.datasets import Dataset, get_dataset_spec, RegisteredDatasets
 from canvas.controllers.controller import controllers
 from canvas.envs.env_new import Environment
 from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
@@ -12,16 +12,11 @@ from simulation import Simulation
 # Main
 # -----------------------------
 def main(dataset, predictor, controller, 
-         prediction_len, history_len, start_x, start_y, dt, goal_x, goal_y, max_ped, t_begin, t_end,
-         num_iter, video_fps, save_video, frame_offset, extracted_fps, output_fps):
-    
+         prediction_len, history_len, start_x, start_y, goal_x, goal_y, max_ped, t_begin, t_end,
+         num_iter, save_video, r_star, ci_mode):
     # Predictor horizon
     prediction_len = prediction_len
     history_len = history_len
-    # Simulation period
-    dt = dt 
-    # Choose predictor
-    obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')
     # Environment setting
     t_begin = t_begin # time step to begin environment in dataset
     t_end   = t_end   # time step to end environment in dataset
@@ -37,9 +32,13 @@ def main(dataset, predictor, controller,
             t_end=t_end,
             history_len=history_len,
             prediction_horizon=prediction_len,
-            path_to_frames='~/canvas/assets/final/frames',
+            path_to_frames='/home/core/Documents/CANVAS/canvas/assets/final/frames',
             path_to_save='./viz_example'
         )
+    # Simulation period
+    dt = env.dt 
+    # Choose predictor
+    obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')
     # CP module setting (use ACP)
     max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1) # Maximum interval length setting
     offline_calibration_set = {i: [] for i in range(prediction_len)}
@@ -64,16 +63,12 @@ def main(dataset, predictor, controller,
                      history_len=history_len,
                      dt=dt,
                      save_video=save_video,
-                     video_fps=video_fps,
-                     use_overlay=True,
-                     frame_offset=frame_offset,
-                     extracted_fps=extracted_fps,
-                     output_fps=output_fps
+                     r_star=r_star,
+                     ci_mode=ci_mode
                     )
     
     for times in range(num_iter):
         sim.run(times=times)
-
 ```
 
 ---
