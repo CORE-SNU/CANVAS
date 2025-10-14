@@ -102,14 +102,9 @@ You can run the simulation with "main_program.py" with some dedicated variables
     * **Egocentric Conformal Prediction MPC** `ecp_mpc`
 * --prediction_len : Length of the predicted trajectory (default : 12, unit : frame)
 * --history_len : Length of the ground truth trajectory (default : 8)
-* --dt : Time period per frame (default : 0.1, unit : sec)
 * --t_begin : Start time of the dataset (default : 40)
 * --t_end : End time of the data (default: 2000)
 * --save_video : Save the result to video (default : True)
-* --video_fps : Configure FPS for saving video. It is recommended to fit with 'dt' (default : 10.0)
-* --frame_offset : Align sim time to real frames (index shift, default : 40)
-* --extracted_fps : FPS used by 'video_parser.py' to extract frames (default : 10.0)
-* --output_fps : FPS of the output mp4 file, defaults to extracted_fps (default : 10.0)
 * --max_ped : Maximum number of pedestrians to consider for control problem, and the other pedestrians that exceed the 'max_ped' will be ignored (default : 4)  
 
 ## To-do-list
