@@ -195,13 +195,13 @@ class Environment:
         assert self._path_to_frames is not None and self._path_to_save is not None
         plt.clf(), plt.cla()
         fig, ax = plt.subplots()
-        if str(getattr(self, "dataset_label", "")).lower() == "lobby":
+        if str(getattr(self, "dataset_label", "")).lower() == "snu-asri":
             frame_path = "lobby3.png"  # local file
         else:
             frame_path = os.path.join(self._path_to_frames, self.dataset_label, f"{self._step}.png")
         #frame_path = os.path.join(self._path_to_frames, self.dataset_label, '{}.png'.format(self._step))
         image = cv2.imread(frame_path)
-        if self.dataset_label.lower() == "lobby":
+        if self.dataset_label.lower() == "snu-asri":
             ax.imshow(image, cmap='gray', alpha=0.6,extent=(-3.0, 8.5, -9.5, 1.5))
         else:
             ax.imshow(image, cmap='gray', alpha=0.6)
@@ -235,7 +235,9 @@ class Environment:
         draw_robot(ax, H, self._x, self._y, self._th, robot_img=self._robot_img)        # robot figure
 
         # non-ego agents: history
-        scene = self._dataset.get_scene(timestep=self._step, history_length=self._step-self._first_step)
+        hlen = max(1, min(self._history_len, self._step - self._first_step))
+        #scene = self._dataset.get_scene(timestep=self._step, history_length=self._step-self._first_step)
+        scene = self._dataset.get_scene(timestep=self._step, history_length=hlen)
 
         for _, h in scene.items():
             visualize_trajectory(
@@ -247,7 +249,8 @@ class Environment:
             )
 
         # non-ego agents: future
-        future_scene = self._dataset.get_future(timestep=self._step, future_length=self._prediction_len,history_length=self._step-self._first_step)
+        #future_scene = self._dataset.get_future(timestep=self._step, future_length=self._prediction_len,history_length=self._step-self._first_step)
+        future_scene = self._dataset.get_future(timestep=self._step, future_length=self._prediction_len, history_length=hlen)
         labeled = False
         for _, f in future_scene.items():
             visualize_trajectory(
@@ -283,7 +286,7 @@ class Environment:
         visualize_point(self._goal, H, ax, color='tab:pink', marker='*', s=160, label='goal', zorder=500)
 
         h, w, _ = image.shape
-        if self.dataset_label.lower() == "lobby":
+        if self.dataset_label.lower() == "snu-asri":
             ax.set_xlim(-3.0, 8.5)
             ax.set_ylim(1.5, -9.5)
         else:

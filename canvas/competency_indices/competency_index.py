@@ -1,73 +1,63 @@
+# competency_index.py
+# CI mapping and ACI lower bound (Sec. IV, Eq.(5) and Eq.(8))
+from __future__ import annotations
 import numpy as np
-from .score_function import ScoreFunction
+from typing import Optional
+
+Array = np.ndarray
 
 class CompetencyIndex:
-    """
-    Compute CI = R*/(err + R*), where:
-      - R*: user-provided tolerance (scalar or per-step array)
-      - err: score from ScoreFunction (series or scalar)
-    """
-
-    def __init__(self, case="traj", r_star=0.5, return_type="series", clip=True):
-        # case: "traj" | "control" | "obj" | "ctrl_cost"
-        # return_type: for "traj"/"control" → "series"|"mean"|"final"
+    def __init__(self, case: str = "traj", r_star: float = 0.5,
+                 return_type: str = "final", clip: bool = True):
         self.case = case
-        self.r_star = r_star
+        self.r_star = float(r_star)
         self.return_type = return_type
-        self.clip = bool(clip)
-        self._sf = ScoreFunction(case=case, return_type=return_type)
+        self.clip = clip
 
-    def __call__(self, *, r_star=None, return_type=None, **kwargs):
-        """
-        Forward kwargs to ScoreFunction and convert the returned err to CI.
-        You can override r_star/return_type per call.
-        """
-        rs = self.r_star if r_star is None else r_star
-        rt = self.return_type if return_type is None else return_type
+    # ---- CI mapping: I = R* / (E + R*) ----
+    def to_ci(self, err) -> float | Array:
+        return self._to_ci(err, self.r_star)
 
-        # Get error from ScoreFunction (np.ndarray for series, float for scalars)
-        err = self._sf(case=self.case, return_type=rt, **kwargs)
-
-        # Compute CI
-        return self._to_ci(err, rs)
-
-    # ---------------------------- helpers ----------------------------
-    # Compute CI = R*/(err + R*)
-    def _to_ci(self, err, r_star):
+    @staticmethod
+    def _to_ci(err, r_star: float) -> float | Array:
         if np.isscalar(err):
-            rs = float(r_star) if np.isscalar(r_star) else float(np.asarray(r_star).ravel()[0])
-            if not np.isfinite(rs) or rs <= 0:
-                return float("nan")
-            val = rs / (float(err) + rs)
-            return float(min(val, 1.0)) if self.clip else float(val)
-
+            e = float(err)
+            rs = float(r_star)
+            val = rs / (e + rs) if np.isfinite(e) and rs > 0 else 0.0
+            return float(np.clip(val, 0.0, 1.0))
         e = np.asarray(err, dtype=np.float64)
-        if e.size == 0:
-            return e
-        rs = self._broadcast_rstar(r_star, e.shape)
+        rs = CompetencyIndex._broadcast_rstar(r_star, e.shape)
         with np.errstate(divide="ignore", invalid="ignore"):
             ci = rs / (e + rs)
-        ci[~np.isfinite(ci)] = np.nan
-        if self.clip:
-            ci = np.minimum(ci, 1.0)
-        return ci
-    
+        ci[~np.isfinite(ci)] = 0.0
+        return np.clip(ci, 0.0, 1.0)
+
+    # ---- ACI lower bound: L = R* / (U + R*) ----
     @staticmethod
-    def aci_lower_bound(U, r_star):
-        """
-        For ACI upper bound U(=confidence interval half-width),
-        return ACI lower bound L = R*/(U + R*) (allow scalar/series)
-        """
+    def aci_lower_bound(U, r_star: float) -> float | Array:
         if np.isscalar(U):
-            rs = float(r_star) if np.isscalar(r_star) else float(np.asarray(r_star).ravel()[0])
-            if not np.isfinite(rs) or rs <= 0:
-                return float("nan")
-            return float(min(rs/(float(U)+rs), 1.0))
+            u = float(U)
+            rs = float(r_star)
+            val = rs / (u + rs) if np.isfinite(u) and rs > 0 else 0.0
+            return float(np.clip(val, 0.0, 1.0))
         U = np.asarray(U, dtype=np.float64)
-        rs = float(r_star) if np.isscalar(r_star) else float(np.asarray(r_star).ravel()[0])
+        rs = CompetencyIndex._broadcast_rstar(r_star, U.shape)
         with np.errstate(divide="ignore", invalid="ignore"):
-            ci = rs / (U + rs)
-        ci[~np.isfinite(ci)] = np.nan
-        return np.minimum(ci, 1.0)
+            lb = rs / (U + rs)
+        lb[~np.isfinite(lb)] = 0.0
+        return np.clip(lb, 0.0, 1.0)
+
+    # ---- helper ----
+    @staticmethod
+    def _broadcast_rstar(r_star, shape):
+        if np.isscalar(r_star):
+            return np.full(shape, float(r_star), dtype=np.float64)
+        rs = np.asarray(r_star, dtype=np.float64)
+        if rs.shape == shape:
+            return rs
+        if rs.ndim == 1 and rs.size == shape[0]:
+            out = np.tile(rs.reshape(-1, *([1] * (len(shape) - 1))), (1,) + shape[1:])
+            return out.astype(np.float64)
+        return np.full(shape, float(rs.ravel()[0]), dtype=np.float64)
 
 
