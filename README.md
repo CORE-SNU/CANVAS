@@ -8,9 +8,6 @@ from canvas.envs.env_new import Environment
 from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
 from simulation import Simulation
 
-# -----------------------------
-# Main
-# -----------------------------
 def main(dataset, predictor, controller, 
          prediction_len, history_len, start_x, start_y, dt, goal_x, goal_y, max_ped, t_begin, t_end,
          num_iter, video_fps, save_video, frame_offset, extracted_fps, output_fps):
@@ -57,18 +54,8 @@ def main(dataset, predictor, controller,
                      controller=controller,
                      cp_module=cp_module,
                      goal=goal,
-                     max_pedestrian=max_ped,
-                     persistent_static_boxes=persistent_static_boxes,
                      dataset=dataset_obj,
-                     prediction_len=prediction_len,
-                     history_len=history_len,
-                     dt=dt,
-                     save_video=save_video,
-                     video_fps=video_fps,
-                     use_overlay=True,
-                     frame_offset=frame_offset,
-                     extracted_fps=extracted_fps,
-                     output_fps=output_fps
+                     ...
                     )
     
     for times in range(num_iter):
