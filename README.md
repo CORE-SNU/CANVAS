@@ -27,34 +27,16 @@ def main(dataset, predictor, controller,
     goal = np.array([goal_x, goal_y]) # Goal position for control test
     persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset).static_regions]
     env = Environment(
-            dataset=dataset_obj,
-            init_robot_state=init_robot_pose,
-            goal_pos=goal,
-            t_begin=t_begin,
-            t_end=t_end,
-            history_len=history_len,
-            prediction_horizon=prediction_len,
-            path_to_frames='~/canvas/assets/final/frames',
-            path_to_save='./viz_example'
+            ...
         )
     # CP module setting (use ACP)
     max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1) # Maximum interval length setting
     offline_calibration_set = {i: [] for i in range(prediction_len)}
-    cp_module = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
-                                                  step_size=0.05,
-                                                  n_scores=prediction_len,
-                                                  max_interval_lengths=max_interval_lengths,
-                                                  sample_size=20,
-                                                  offline_calibration_set=offline_calibration_set)
+    cp_module = AdaptiveConformalPredictionModule(...)
     # Choose controller for control test
     controller = controllers(chosen_controller=controller,prediction_len=prediction_len,dt=dt)
     # Control test simulation setting
-    sim = Simulation(environment=env, 
-                     predictor=obj_predictor,
-                     controller=controller,
-                     cp_module=cp_module,
-                     goal=goal,
-                     dataset=dataset_obj,
+    sim = Simulation(
                      ...
                     )
     
