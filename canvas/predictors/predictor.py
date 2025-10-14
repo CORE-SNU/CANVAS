@@ -35,6 +35,7 @@ class Predictors:
         """
         self._dt = dt
         name = str(chosen_predictor).strip().lower()
+        dataset=dataset.strip().lower()
 
         if name in ("linear", "lin"):
             # Linear predictor
@@ -81,13 +82,13 @@ class Predictors:
             elif(dataset=='univ'):
                 model_dir="canvas/predictors/eigen/models/uni/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-uni.json"
-            elif(dataset=='zara1'):
+            elif(dataset=='zara1' or dataset=='zara01'):
                 model_dir="canvas/predictors/eigen/models/zara01/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara01.json"
-            elif(dataset=='zara2'):
+            elif(dataset=='zara02' or dataset=='zara2'):
                 model_dir="canvas/predictors/eigen/models/zara02/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara02.json"
-            elif(dataset=='snu-asri'):
+            elif(dataset=='lobby' or dataset=='lobby_data'):
                 model_dir="canvas/predictors/eigen/models/lobby_data/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json"
             else:
@@ -125,15 +126,15 @@ class Predictors:
                 k_path='canvas/predictors/koopcast/data/univ_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/univ_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/univ_mdn.pt'
-            elif(dataset=='zara1'):
+            elif(dataset=='zara01' or dataset=='zara1'):
                 k_path='canvas/predictors/koopcast/data/crowds_zara01_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/crowds_zara01_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/crowds_zara01_mdn.pt'
-            elif(dataset=='zara2'):
+            elif(dataset=='zara02' or dataset=='zara2'):
                 k_path='canvas/predictors/koopcast/data/crowds_zara02_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/crowds_zara02_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/crowds_zara02_mdn.pt'
-            elif(dataset=='snu-asri'):
+            elif(dataset=='lobby' or dataset=='lobby_data'):
                 k_path='canvas/predictors/koopcast/data/0_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/0_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/0_mdn.pt'
@@ -154,21 +155,70 @@ class Predictors:
             )
         elif name in ("SocialVAE","socialvae","social_vae"):
             from .SocialVAE.social_vae_runner import Social_VAE_Predictor
+            # dataset is a string like 'ETH', 'Hotel', 'Univ', 'Zara01', 'Zara02', 'Lobby', etc.
+            key = dataset.strip().lower()
+
+            cfg_model_map = {
+                # ETH/Hotel/Univ
+                'eth':        ("/config/eth.py",        "/models/eth"),
+                'hotel':      ("/config/hotel.py",      "/models/hotel"),
+                'univ':       ("/config/univ.py",       "/models/univ"),
+
+                # Zara
+                'zara01':     ("/config/zara01.py",     "/models/zara01"),
+                'zara1':      ("/config/zara01.py",     "/models/zara01"),
+                'zara02':     ("/config/zara02.py",     "/models/zara02"),
+                'zara2':      ("/config/zara02.py",     "/models/zara02"),
+
+                # Lobby
+                'lobby':      ("/config/lobby_data.py", "/models/lobby"),
+                'lobby_data': ("/config/lobby_data.py", "/models/lobby"),
+            }
+
+            if key not in cfg_model_map:
+                raise ValueError(
+                    f"Unknown dataset '{dataset}'. "
+                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                )
+
+            cfg, model_path = cfg_model_map[key]
             self.PredictorModel=Social_VAE_Predictor(
                 prediction_len=prediction_len,
                 history_len=history_len,
                 dt=dt,
                 device=device,
-                #model_dir=model_dir,
+                cfg= cfg,
+                model_path=model_path,
             )
         elif name in ("STGCNN","socialstgcnn","social_stgcnn","stgcnn","social-stgcnn"):
             from .Social_STGCNN.STGCNN_live_test import STGCNN_Predictor
+            key = dataset.strip().lower()
+
+            folder_map = {
+                'eth':       'social-stgcnn-eth',
+                'hotel':     'social-stgcnn-hotel',
+                'univ':      'social-stgcnn-univ',
+                'zara01':    'social-stgcnn-zara1',   # handle 01 -> 1
+                'zara1':     'social-stgcnn-zara1',
+                'zara02':    'social-stgcnn-zara2',   # handle 02 -> 2
+                'zara2':     'social-stgcnn-zara2',
+                'lobby':     'social-stgcnn-lobby_data',
+                'lobby_data':'social-stgcnn-lobby_data',
+            }
+
+            if key not in folder_map:
+                raise ValueError(
+                    f"Unknown dataset '{dataset}'. "
+                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                )
+
+            model_dir = f"/checkpoint/{folder_map[key]}"
             self.PredictorModel=STGCNN_Predictor(
                 prediction_len=prediction_len,
                 history_len=history_len,
                 dt=dt,
                 device=device,
-                #model_dir=model_dir,
+                model_dir=model_dir,
             )
         elif name in ("pytorch", "torch"):
             self.PredictorModel=torch.load(model_dir,map_location=device)

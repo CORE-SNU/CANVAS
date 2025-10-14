@@ -12,7 +12,7 @@ class Social_VAE_Predictor(BasePredictors):
     self,
     prediction_len: int = 12,
     history_len: int = 8,
-    dt: float = 0.1,
+    dt: float = 0.4,
     device: str = "cpu",
     *,
     cfg: str = "/config/eth.py",
@@ -41,7 +41,7 @@ class Social_VAE_Predictor(BasePredictors):
         if model_path:
             ckpt = os.path.join(model_path, "ckpt-best")
             if os.path.exists(ckpt):
-                state_dict = torch.load(ckpt, map_location=self.device)
+                state_dict = torch.load(ckpt, map_location=self.device,weights_only=False)
                 self.model.load_state_dict(state_dict["model"])
             else:
                 print("model_path not found: {}".format(ckpt))

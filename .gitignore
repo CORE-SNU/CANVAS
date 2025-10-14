@@ -336,3 +336,12 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/linux,macos,pycharm,python
 /viz/
 /src/canvas/assets/final/frames/
+/canvas/assets/final/frames/
+/canvas/datasets/eth-ucy/
+/canvas/datasets/snu-asri/
+/viz_example/
+/CANVAS/assets/
+assets/datasets/eth-ucy/
+assets/
+viz_example_snippets_id/
+viz_example_lobby/
