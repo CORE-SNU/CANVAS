@@ -1,0 +1,3 @@
+[submodule "canvas/controllers/pytorch_mppi"]
+	path = canvas/controllers/pytorch_mppi
+	url = https://github.com/UM-ARM-Lab/pytorch_mppi.git
