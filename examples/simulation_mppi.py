@@ -43,7 +43,6 @@ def compute_mppi_state(obs, p_dict, prediction_horizon):
     return np.array(state)
 
 def main(goal_x, goal_y, num_iter, dataset_name, predictor):
-    persistent_static_boxes = [region_to_box(r) for r in get_dataset_spec(dataset_name).static_regions]
 
     init_robot_pose = {
         'position_x': 12.,
@@ -185,10 +184,6 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
         frame = 0
 
         kmppi.reset()
-
-
-
-
 
         while not truncated:
             # simulation loop
