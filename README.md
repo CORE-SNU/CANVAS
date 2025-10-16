@@ -107,22 +107,30 @@ You can run the simulation with "main_program.py" with some dedicated variables
 * --save_video : Save the result to video (default : True)
 * --max_ped : Maximum number of pedestrians to consider for control problem, and the other pedestrians that exceed the 'max_ped' will be ignored (default : 4)  
 
+## Controllers
+To use MPPI controllers as baselines, run 
+```
+pip install -e canvas/controllers/MPPI
+```
+This installs the MPPI implementation forked from [pytorch-mppi][pytorch-mppi-link]. Note that the requires pytorch to be installed in advance.
+
+
 ## To-do-list
 - [x] MPPI implementation
-- [ ] MPPI refinement (parameters, action constraints, $\delta u$)
 - [ ] ECP-MPC migration
 - [x] visualization: direction-indicators, complete pedestrian histories, robot figure, linewidth
 - [ ] benchmark tests: training in `SNU-ASRI`
 - [ ] OOD definition & evaluation
 - [ ] intuitive scenarios
 - [x] exclude `.npy` files from the repository; they are too large to keep inside the repository; need to be downloaded from an external source
+- [ ] path to frame directory as an environment variable instead of manually modifying the associated variables inside the codes
 
 [trajectronpp-link]: https://github.com/StanfordASL/Trajectron-plus-plus
 [eigentraj-link]: https://github.com/InhwanBae/EigenTrajectory
 [socialstgcnn-link]: https://github.com/abduallahmohamed/Social-STGCNN
 [socialvae-link]: https://github.com/xupei0610/SocialVAE
 [koopcast-link]: https://github.com/Koopcast/Koopcast
-
+[pytorch-mppi-link]: https://github.com/UM-ARM-Lab/pytorch_mppi
 
 # Update Log
 [2025-10-02 19:45] move src/canvas to canvas; move all simulation*.py files into examples
@@ -130,3 +138,5 @@ You can run the simulation with "main_program.py" with some dedicated variables
 [2025-10-02 20:48] Dataset class added; defined in `canvas.datasets.dataset`
 
 [2025-10-10 11:00] Changed tool's main code that accompany with "example" python code - 'main_program.py' (split existing code to 'main_program.py' & 'simulation.py')
+
+[2025-10-16] MPPI integrated into our codebase
