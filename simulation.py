@@ -89,12 +89,9 @@ class Simulation():
         frame = 0
         frames = []
         infeasible_count = 0
-        infeasible_streak = 0
-        max_infeasible_streak = 10
         collision_count = 0
         is_success = False
 
-        buffer_infeasibility = []
         minimum_cost = []
         buffer_pos_x = []  # per-frame x within this run
         buffer_pos_y = []
@@ -105,7 +102,7 @@ class Simulation():
         # ---------- Choose predictor ---------
         obj_predictor = self.predictor
         obj_predictor_gt=Predictors(
-            chosen_predictor="eigen",
+            chosen_predictor="linear",
             prediction_len=self.prediction_len,
             history_len=self.history_len,
             dt=self.dt,
@@ -115,7 +112,7 @@ class Simulation():
 
         # ---------- CP module (update once per frame) ---------
         cp_module = self.cp_module
-        cp_module_gt = cp_module
+        cp_module_gt = cp_module # Need revision if we use 'this' cp_module
 
         obs, simulation_info = self.env.reset()
         truncated = False
@@ -242,15 +239,15 @@ class Simulation():
 
             # --- ACI upper bound for energy, then lower CI bound (paper) ---
             U_t = self.aci_energy.update(score=E_t)
-            L_t = self.r_star / (U_t + self.r_star)
+            L_t = E_base_t/ (U_t + E_base_t)
 
             print("CI_lower(L_t): ", L_t)
             print("CI(I_t): ", I_t)
-            self._ci_series.append(I_t)
+            self._ci_series.append(L_t)
 
             # color gradation history
             c_2 = self._ci_series.copy()
-            c_2.append(I_t)
+            c_2.append(L_t)
 
             '''
             ci = (confidence_intervals_gt[8]) / (confidence_intervals[8] + confidence_intervals_gt[8])
