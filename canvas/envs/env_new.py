@@ -202,7 +202,7 @@ class Environment:
         #frame_path = os.path.join(self._path_to_frames, self.dataset_label, '{}.png'.format(self._step))
         image = cv2.imread(frame_path)
         if self.dataset_label.lower() == "snu-asri":
-            ax.imshow(image, cmap='gray', alpha=0.6,extent=(-3.0, 8.5, -9.5, 1.5))
+            ax.imshow(image, cmap='gray', alpha=0.6, extent=(-3.0, 8.5, -9.5, 1.5))
         else:
             ax.imshow(image, cmap='gray', alpha=0.6)
 
@@ -284,6 +284,19 @@ class Environment:
 
         # mark the goal position
         visualize_point(self._goal, H, ax, color='tab:pink', marker='*', s=160, label='goal', zorder=500)
+
+        # (optional) ego-motion plan
+
+        if 'open_loop' in kwargs:
+            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'white', 'label': 'prediction'}
+            visualize_trajectory(
+                trajectory=kwargs['open_loop'],
+                H=H,
+                ax=ax,
+                c=None,
+                **ego_plan_params
+            )
+
 
         h, w, _ = image.shape
         if self.dataset_label.lower() == "snu-asri":
