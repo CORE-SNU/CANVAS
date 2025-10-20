@@ -89,12 +89,9 @@ class Simulation():
         frame = 0
         frames = []
         infeasible_count = 0
-        infeasible_streak = 0
-        max_infeasible_streak = 10
         collision_count = 0
         is_success = False
 
-        buffer_infeasibility = []
         minimum_cost = []
         buffer_pos_x = []  # per-frame x within this run
         buffer_pos_y = []
@@ -105,7 +102,7 @@ class Simulation():
         # ---------- Choose predictor ---------
         obj_predictor = self.predictor
         obj_predictor_gt=Predictors(
-            chosen_predictor="eigen",
+            chosen_predictor="linear",
             prediction_len=self.prediction_len,
             history_len=self.history_len,
             dt=self.dt,
@@ -115,7 +112,7 @@ class Simulation():
 
         # ---------- CP module (update once per frame) ---------
         cp_module = self.cp_module
-        cp_module_gt = cp_module
+        cp_module_gt = cp_module # Need revision if we use 'this' cp_module
 
         obs, simulation_info = self.env.reset()
         truncated = False
@@ -206,35 +203,29 @@ class Simulation():
                 # If the current does not provide the controller API, use 'traj' first
                 E_t = self.sf(x=obs['ego'], y_future=gt_future, yhat_future=prediction_res, controller=self.controller)
 
-            eps = 1e-12  # 0-division º¸È£
+            eps = 1e-12  
             ci_scheme = "pairwise"
             if ci_scheme == "static":
-                # (A) »ó¼ö ÂüÁ¶Çü: E_ref¸¦ °íÁ¤ »ó¼ö·Î
                 if self.E_ref_fixed is None:
                     if self.ci_boot > 0:
-                        # ¿ö¹Ö¾÷ ¼öÁý Áß
                         self._E_boot.append(E_t)
                         if len(self._E_boot) < self.ci_boot:
-                            # ÀÓ½Ã Ç¥½Ã(¼±ÅÃ): r_star·Î °¡´Â ÀÓ½Ã°ª
                             E_ref_now = self.r_star
                             I_t = E_ref_now / (E_t + E_ref_now + eps)
                             self._ci_series.append(I_t)
                             fig, ax = self.env.render(c=self._ci_series + [I_t])
                             continue
                         else:
-                            # ºÎÆ®½ºÆ®·¦À¸·Î '°íÁ¤' E_ref °áÁ¤ (¿©ÀüÈ÷ »ó¼ö)
                             self.E_ref_fixed = float(np.quantile(self._E_boot, self.ci_ref_q))
                             if self.E_ref_fixed <= 0:
-                                self.E_ref_fixed = self.r_star  # ¾ÈÀü °¡µå
+                                self.E_ref_fixed = self.r_star  
                     else:
-                        # ºÎÆ®½ºÆ®·¦À» ¾²Áö ¾Ê´Â °æ¿ì: Áï½Ã »ó¼ö ¼³Á¤
                         self.E_ref_fixed = float(self.r_star)
 
                 E_ref_now = float(self.E_ref_fixed)
                 I_t = E_ref_now / (E_t + E_ref_now + eps)
 
             elif ci_scheme == "pairwise":
-                # (B) ½Ö´ë ºñ±³Çü: E_ref = E_base_t (½Ã°£¸¶´Ù ´Þ¶óÁü)  ¡æ º¸Áõ(ÇÏÇÑ) ¾øÀ½, ÇÏÁö¸¸ Æ©´× ºÒÇÊ¿ä
                 if obj_predictor_gt is None:
                     raise RuntimeError("pairwise CI needs a baseline predictor (e.g., linear)")
                 baseline_pred = prediction_res_gt
@@ -248,15 +239,15 @@ class Simulation():
 
             # --- ACI upper bound for energy, then lower CI bound (paper) ---
             U_t = self.aci_energy.update(score=E_t)
-            L_t = self.r_star / (U_t + self.r_star)
+            L_t = E_base_t/ (U_t + E_base_t)
 
             print("CI_lower(L_t): ", L_t)
             print("CI(I_t): ", I_t)
-            self._ci_series.append(I_t)
+            self._ci_series.append(L_t)
 
             # color gradation history
             c_2 = self._ci_series.copy()
-            c_2.append(I_t)
+            c_2.append(L_t)
 
             '''
             ci = (confidence_intervals_gt[8]) / (confidence_intervals[8] + confidence_intervals_gt[8])
