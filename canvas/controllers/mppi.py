@@ -1,111 +1,124 @@
+from pytorch_mppi import mppi as torch_mppi
+from functools import partial
 import numpy as np
-from scipy.special import softmax
+import torch
+import pytorch_seed
+# from arm_pytorch_utilities import linalg, handle_batch_input, sort_nicely, cache
 
 
-class MPPI:
-    def __init__(self, n_steps: int, dt: float, epsilon: float, control_weight, n_paths, collision_weight, gamma):
+def unicycle_dynamics(state, action, dt):
+    """
+    x[k+1] = x[k] + dt * v[k] * cos(th[k])
+    y[k+1] = y[k] + dt * v[k] * sin(th[k])
+    th[k+1] = th[k] + dt * w[k]
 
-        assert n_steps > 0 and dt > 0.
+    To additionally account for non-ego dynamic agents, an extra N state variables are added:
+    dist_0[k], dist_1[k], ..., dist_N[k]
+    Each dist_i[k] represents the minimum distance between the ego-agent and the non-ego agents in the i-th future.
+    (Note that only the distances matter when computing the cost function!)
+    The dynamics of these variables (whose values are acquired by the prediction model) are simply given as the shift operator:
 
-        self._n_steps = n_steps
+    dist_i[k+1] = dist_{i+1}[k], i = 0, ..., N-1
+    dist_N[k+1] = dist_N[k].
 
-        self._dt = dt
-        # dx_t = (f(x_t) + G(x_t) u_t) dt + epsilon dB_t
-        self._epsilon = epsilon     # std. of the diffusion
+    state: torch tensor of shape (batch size, state dim.)
+    action: torch tensor of shape (batch size, action dim.)
+    """
+    x, y, th = state[..., 0], state[..., 1], state[..., 2]
+    v, w = action[..., 0], action[..., 1]
 
-        self._n_paths = n_paths
+    d = state[..., 3:]    # (batch size, N)
 
-        self._ctrl_weight = control_weight
+    x_next = x + dt * (v * torch.cos(th))
+    y_next = y + dt * (v * torch.sin(th))
+    th_next = th + dt * w
 
-        self._collision_weight = collision_weight
+    ego_next = torch.stack((x_next, y_next, th_next), dim=-1)
+    d_next = torch.cat((d[:, 1:], d[:, -1:]), dim=-1)
+    return torch.cat((ego_next, d_next), dim=-1)
 
-        # cost function L(x, u) = q(x) + 1/2 u^T R u
-        # where R = (2 * ctrl_weight) I_2
 
-        # R = lambda G^T \Sigma^{-1} G
-        self._lambda = control_weight * (2. * epsilon ** 2)
 
-        self._u_seq = np.zeros((n_steps, 2))
+def running_cost(state, action, goal_x, goal_y, d_min):
+    x, y = state[..., 0], state[..., 1]
+    goal_cost = (x - goal_x) ** 2 + (y - goal_y) ** 2
+    d = state[..., 3]     # dist_0[k]
+    collision_cost = torch.where(d <= d_min, 1., 0.)    # binary variables indicating collisions
+    weight = 1e-3   # magnitude of the cost
+    return goal_cost + weight * collision_cost
 
-        self._gamma = gamma     # step size
+def terminal_cost(state, action, goal_x, goal_y, d_min):
+    x, y = state[..., -1, 0], state[..., -1, 1]
+    d = state[..., -1, 3]  # dist_0[k]
+    goal_cost = (x - goal_x) ** 2 + (y - goal_y) ** 2
 
-    def _shift_ctrl_seq(self):
-        """
-        apply the shift operator to the control input sequence
-        """
-        u_seq = np.zeros_like(self._u_seq)
-        u_seq[:-1] = self._u_seq[1:]
-        u_seq[-1] = self._u_seq[-1]
+    collision_cost = torch.where(d <= d_min, 1., 0.)
+    weight = 1e-3
+    return 10. * goal_cost + weight * collision_cost
+
+
+
+def compute_mppi_state(obs, p_dict, prediction_horizon):
+
+    x, y, th = obs['ego']['position_x'], obs['ego']['position_y'], obs['ego']['orientation_z']
+    non_ego = obs['non-ego']        # observed trajectories of active non-ego agents
+    # If there is no non-ego agent, set the min. distance to +inf.
+    d0 = min(((x - h[-1, 0]) ** 2 + (y - h[-1, 1]) ** 2) ** .5 for h in non_ego.values()) if non_ego else 1e5
+    state = [x, y, th, d0]
+
+    xy = np.array([x, y])
+
+    if p_dict:
+        for i in range(prediction_horizon):
+            ds = [np.sum((p[i] - xy) ** 2) ** .5 if p.shape[0] > i else 1e5 for p in p_dict.values()]
+
+            state.append(min(ds))
+    else:
+        # no prediction made
+        state += prediction_horizon * [1e5]
+    return np.array(state)
+
+
+class KernelMPPI:
+    """
+    A wrapper of pytorch_mppi.mppi
+    """
+    def __init__(self, prediction_horizon, dt, mppi_params, goal, d_min):
+
+
+        pytorch_seed.seed(2)
+
+
+        goal_x, goal_y = goal
+        self._running_cost = partial(running_cost, goal_x=goal_x, goal_y=goal_y, d_min=d_min)
+        self._terminal_cost = partial(terminal_cost, goal_x=goal_x, goal_y=goal_y, d_min=d_min)
+        self._dynamics = partial(unicycle_dynamics, dt=dt)
+
+        self.device = mppi_params['device']
+        self._prediction_horizon = prediction_horizon
+        self._mppi = torch_mppi.KMPPI(
+            self._dynamics,
+            self._running_cost,
+            3+1+prediction_horizon,
+            **mppi_params,
+            terminal_state_cost=self._terminal_cost,
+            horizon=prediction_horizon,
+            kernel=torch_mppi.RBFKernel(sigma=2),
+            num_support_pts=5
+        )
+        self._mppi.reset()
+
         return
 
+    def __call__(self, obs, prediction_res):
+        state = compute_mppi_state(obs, prediction_res, prediction_horizon=self._prediction_horizon)
+        u = self._mppi.command(state, shift_nominal_trajectory=True)
 
-    def __call__(self, pos_x, pos_y, orientation_z, boxes, predictions, goal, history):
+        state_torch = torch.tensor(state).to(self.device)
+        rollout = self._mppi.get_rollouts(state_torch)
 
-        x_seq, w_seq = self.forward(pos_x, pos_y, orientation_z)
-        delta_u = self.compute_delta_u(x_seq, self._u_seq, w_seq, goal, predictions)
-        self.update_u_seq(delta_u)
+        controller_info = {}
 
-        u0 = np.copy(self._u_seq[0])
-        self._shift_ctrl_seq()
-        return u0
+        controller_info['rollout'] = rollout[0]
 
-    def forward(self, pos_x, pos_y, orientation_z):
-        """
-        forward propagation of the dynamics
-
-        dx_t = (f(x_t) + G(x_t) u_t) dt + epsilon dB_t
-        """
-
-        # white noise sequence; shape: (prediction horizon, # paths, state dim.)
-        w_seq = self._epsilon * np.random.randn(self._n_steps, self._n_paths, 3)
-
-        x_seq = np.zeros((self._n_steps+1, self._n_paths, 3))
-
-        # initialize: i = 0
-        # (x, y, \theta)
-        x_seq[0, ...] = np.array([pos_x, pos_y, orientation_z])
-
-        # propagation loop: 1 <= i <= N, where N: prediction horizon
-        for i in range(self._n_steps):
-            th = x_seq[i, :, -1]        # (# paths,)
-            c, s = np.cos(th), np.sin(th)
-            v, w = self._u_seq[i]
-            Gu_i = np.stack((v*c, v*s, np.tile(w, self._n_paths)), axis=-1)     # (# paths, 3)
-
-            x_seq[i+1, :] = x_seq[i, :] + self._dt * Gu_i + (self._dt ** .5) * w_seq[i, ...]
-
-        return x_seq, w_seq
-
-    def evaluate_costs(self, x_seq, u_seq, goal, predictions):
-        # intermediate state cost q(x_i)
-        # shape (# paths,)
-        intermediate_cost = np.sum((x_seq[:-1] - goal) ** 2, axis=(0, -1))
-
-        # sum of quadratic control costs 1/2 u^T R u across prediction horizon
-        control_cost = self._ctrl_weight * np.sum(u_seq ** 2)
-
-        # terminal state cost phi(x_N)
-        # shape (# paths,)
-        terminal_cost = 10. * np.sum((x_seq[-1] - goal) ** 2, axis=-1)
-
-        # collision cost (part of the state cost)
-        distances = []
-        for track_id, prediction in predictions.items():
-            # shape = (# paths, # steps)
-            distance = np.sum((x_seq[1:] - prediction[:, None, :]) ** 2, axis=-1) ** .5
-            distances.append(distance)  # (# tracked, # steps, # paths)
-        min_distances = np.min(distances, axis=0)
-        collision_cost = -self._collision_weight * np.sum(min_distances, axis=0)
-        return intermediate_cost + control_cost + terminal_cost + collision_cost
-
-    def compute_delta_u(self, x_seq, u_seq, w_seq, goal, predictions):
-        costs = self.evaluate_costs(x_seq=x_seq, u_seq=u_seq, goal=goal, predictions=predictions)
-        weights = softmax(-costs / self._lambda)        # (# paths,)
-
-        weights /= self._dt ** .5
-
-        delta_u = np.sum(weights[None, :, None] * w_seq, axis=1)
-        return delta_u
-
-    def update_u_seq(self, delta_u):
-        self._u_seq += self._gamma * delta_u
+        return u.detach().cpu().numpy(), controller_info

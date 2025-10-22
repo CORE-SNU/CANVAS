@@ -552,8 +552,8 @@ def main(plot_only=False):
         "device": device,
     }
     # create MPPI with some initial parameters
-    mmppi = mppi.MPPI(env.dynamics, env.running_cost, 2,
-                      **shared_params)
+    mmppi = mppi.KernelMPPI(env.dynamics, env.running_cost, 2,
+                            **shared_params)
     smppi = mppi.SMPPI(env.dynamics, env.running_cost, 2,
                        **shared_params,
                        w_action_seq_cost=10,

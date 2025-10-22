@@ -4,14 +4,17 @@ import os
 from typing import Dict, Any
 import matplotlib.pyplot as plt
 import torch
-from pytorch_mppi import mppi
-import pytorch_seed
-from arm_pytorch_utilities import linalg, handle_batch_input, sort_nicely, cache
+from copy import deepcopy
+
+from canvas.controllers import KernelMPPI
 
 from canvas.datasets import get_dataset_spec
 from canvas.datasets import RegisteredDatasets
 from canvas.envs.env_new import Environment
-from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
+from canvas.conformal_predictors.scores import ActionDivergenceScoreFunction
+from canvas.conformal_predictors.aci import DelayedACI
+from canvas.conformal_predictors.cp_utils import HistoryBuffer
+from canvas.predictors import Predictors
 
 """
 Simulation pipeline (per frame):
@@ -25,32 +28,14 @@ Simulation pipeline (per frame):
 """
 
 
-def compute_mppi_state(obs, p_dict, prediction_horizon):
-
-    x, y, th = obs['ego']['position_x'], obs['ego']['position_y'], obs['ego']['orientation_z']
-    non_ego = obs['non-ego']        # observed trajectories of active non-ego agents
-    # If there is no non-ego agent, set the min. distance to +inf.
-    d0 = min(((x - h[-1, 0]) ** 2 + (y - h[-1, 1]) ** 2) ** .5 for h in non_ego.values()) if non_ego else 1e5
-    state = [x, y, th, d0]
-
-    if p_dict:
-        for i in range(prediction_horizon):
-            d = min(((x - p[i, 0]) ** 2 + (y - p[i, 1]) ** 2) ** .5 for p in p_dict.values())
-            state.append(d)
-    else:
-        # no prediction made
-        state += prediction_horizon * [1e5]
-    return np.array(state)
-
-def main(goal_x, goal_y, num_iter, dataset_name, predictor):
-
+def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base):
     init_robot_pose = {
         'position_x': 12.,
         'position_y': 5.,
         'orientation_z': np.pi
     }
     goal_pos = np.array([goal_x, goal_y])
-    t_begin = 40
+    t_begin = 1
     t_end = 200
 
     dataset = RegisteredDatasets[dataset_name]
@@ -77,12 +62,12 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
     # -----------------------------
     # TODO: add a logger to manage these
 
-    for times in range(num_iter):
+    for _ in range(num_iter):
         print("==================================")
         print("SIMULATION PIPELINE Started")
 
         # your predictor goes here
-        obj_predictor = Predictors(
+        prediction_model = Predictors(
             chosen_predictor=predictor,
             prediction_len=prediction_horizon,
             history_len=history_len,
@@ -91,122 +76,89 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
             device='cpu'
         )
 
+        prediction_model_baseline = Predictors(
+            chosen_predictor=predictor_base,
+            prediction_len=prediction_horizon,
+            history_len=history_len,
+            dt=env.dt,
+            dataset=dataset_name,
+            device='cpu'
+        )
+
+
         # your controller goes here
-
-        def unicycle_dynamics(state, action):
-            """
-            x[k+1] = x[k] + dt * v[k] * cos(th[k])
-            y[k+1] = y[k] + dt * v[k] * sin(th[k])
-            th[k+1] = th[k] + dt * w[k]
-
-            To additionally account for non-ego dynamic agents, an extra N state variables are added:
-            dist_0[k], dist_1[k], ..., dist_N[k]
-            Each dist_i[k] represents the minimum distance between the ego-agent and the non-ego agents in the i-th future.
-            (Note that only the distances matter when computing the cost function!)
-            The dynamics of these variables (whose values are acquired by the prediction model) are simply given as the shift operator:
-
-            dist_i[k+1] = dist_{i+1}[k], i = 0, ..., N-1
-            dist_N[k+1] = dist_N[k].
-
-            state: torch tensor of shape (batch size, state dim.)
-            action: torch tensor of shape (batch size, action dim.)
-            """
-            x, y, th = state[..., 0], state[..., 1], state[..., 2]
-            v, w = action[..., 0], action[..., 1]
-
-            d = state[..., 3:]    # (batch size, N)
-
-            x_next = x + env.dt * (v * torch.cos(th))
-            y_next = y + env.dt * (v * torch.sin(th))
-            th_next = th + env.dt * w
-
-            ego_next = torch.stack((x_next, y_next, th_next), dim=-1)
-            d_next = torch.cat((d[:, 1:], d[:, -1:]), dim=-1)
-            return torch.cat((ego_next, d_next), dim=-1)
 
         ROBOT_RAD = .4
         d_min = ROBOT_RAD + .1 / np.sqrt(2.)
-
-        def running_cost(state, action):
-            x, y = state[..., 0], state[..., 1]
-            goal_cost = (x - goal_x) ** 2 + (y - goal_y) ** 2
-            d = state[..., 3]     # dist_0[k]
-            collision_cost = torch.where(d <= d_min, 1., 0.)    # binary variables indicating collisions
-            weight = 1e-3   # magnitude of the cost
-            return goal_cost + weight * collision_cost
-
-        def terminal_cost(state, action):
-            x, y = state[..., -1, 0], state[..., -1, 1]
-            d = state[..., -1, 3]  # dist_0[k]
-            goal_cost = (x - goal_x) ** 2 + (y - goal_y) ** 2
-
-            collision_cost = torch.where(d <= d_min, 1., 0.)
-            weight = 1e-3
-            return 10. * goal_cost + weight * collision_cost
-
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        dtype = torch.double
-        pytorch_seed.seed(2)
-
         mppi_params = {
             "num_samples": 500,
-            "horizon": 12,
-            "noise_mu": torch.zeros(2, dtype=dtype, device=device),
-            "noise_sigma": torch.diag(torch.tensor([1., 1.], dtype=dtype, device=device)),
-            "u_max": torch.tensor([.8, .7], dtype=dtype, device=device),
-            "terminal_state_cost": terminal_cost,
+            "noise_mu": torch.zeros(2, dtype=torch.float, device=device),
+            "noise_sigma": torch.diag(torch.tensor([1., 1.], dtype=torch.float, device=device)),
+            "u_max": torch.tensor([.8, .7], dtype=torch.float, device=device),
             "lambda_": 1,
             "device": device
         }
 
-        kmppi = mppi.KMPPI(
-            unicycle_dynamics, running_cost, 3+1+prediction_horizon,
-            **mppi_params,
-            kernel=mppi.RBFKernel(sigma=2),
-            num_support_pts=5
-        )
+        kmppi = KernelMPPI(prediction_horizon=prediction_horizon, dt=env.dt, mppi_params=mppi_params, goal=goal_pos, d_min=d_min)
 
         # ---- CP module (updated once per frame) ----
-        max_interval_lengths = 0.3 * env.dt * np.arange(1, prediction_horizon + 1)
-        offline_calibration_set = {i: [] for i in range(prediction_horizon)}
-        cp_module = AdaptiveConformalPredictionModule(
+
+        max_score = (1.6 ** 2 + 1.4 ** 2) ** .5  # diameter of the action space
+
+        score_ftn = ActionDivergenceScoreFunction(prediction_len=prediction_horizon)
+
+        conformal_predictor = DelayedACI(
             target_miscoverage_level=0.2,
             step_size=0.05,
-            n_scores=prediction_horizon,
-            max_interval_lengths=max_interval_lengths,
-            sample_size=20,
-            offline_calibration_set=offline_calibration_set
+            delay=prediction_horizon,
+            max_score=max_score,
+            sample_size=20
         )
+
 
         obs, simulation_info = env.reset()
         truncated = False
 
-        frame = 0
+        competency_indices = t_begin * [.5]
 
-        kmppi.reset()
+        frame = 0
 
         while not truncated:
             # simulation loop
-
             # --------- Predictor (once per frame) ---------
-            prediction_res = obj_predictor(obs['non-ego'])
 
-            num_refinement_steps = 1
-            u = None
+            prediction_res = prediction_model(obs['non-ego'])
+            prediction_res_base = prediction_model_baseline(obs['non-ego'])
 
-            state = compute_mppi_state(obs, prediction_res, prediction_horizon=prediction_horizon)
-            for k in range(num_refinement_steps):
-                last_refinement = k == num_refinement_steps - 1
-                u = kmppi.command(state, shift_nominal_trajectory=last_refinement)
+            score_ftn.update(obs=obs)
 
-            state_torch = torch.tensor(state).to(device)
-            rollout = kmppi.get_rollouts(state_torch)
-            rollout = rollout[0]
-            # here we evaluate on the rollout MPPI cost of the resulting trajectories
-            # alternative costs for tuning the parameters are possible, such as just considering terminal cost
+            if frame >= prediction_horizon:
+                score = score_ftn(obs=obs)
+                conformal_predictor.update(score)
+
+                err_ub = conformal_predictor.fit()
+                competency_idx = 1. / (1. + err_ub)
+
+            else:
+                competency_idx = .5
+            competency_indices.append(competency_idx)
+
+            kmppi_base = deepcopy(kmppi)
+            u, controller_info = kmppi(obs, prediction_res)
+            u2, controller_info2 = kmppi_base(obs, prediction_res_base)
+
+            score_ftn.save_snapshot(
+                obs=obs,
+                controller=deepcopy(kmppi),
+                action=u,
+                action_base=u2,
+                prediction_res=prediction_res,
+                context={}
+            )
 
             obs, terminated, truncated, simulation_info = env.step(u)
-            fig, ax = env.render(open_loop=rollout[:, :2])
+            fig, ax = env.render(c=competency_indices, open_loop=controller_info['rollout'][:, :2])
 
             ax.legend()
             fig.savefig(os.path.join('./viz_mppi_example', '{:03d}.png'.format(env.timestep)), bbox_inches='tight',
@@ -220,6 +172,8 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
 
             frame += 1
 
+        print('avg. competency index={}'.format(np.mean(competency_indices)))
+
     return
 
 
@@ -229,6 +183,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--dataset', type=str, default="zara1")
     parser.add_argument('--predictor', type=str, default="traj")
+    parser.add_argument('--predictor_base', type=str, default="linear")
 
     parser.add_argument('--goal_x', type=float, default=3.0)  # 8.0 , 6.0
     parser.add_argument('--goal_y', type=float, default=6.0)  # 0.2 , -6.0
@@ -252,4 +207,4 @@ if __name__ == "__main__":
     parser.add_argument("--CI_t", type=int, default=3,
                         help="CI to use for pred.")
     args = parser.parse_args()
-    main(args.goal_x, args.goal_y, args.num_iter, args.dataset, args.predictor)
+    main(args.goal_x, args.goal_y, args.num_iter, args.dataset, args.predictor, args.predictor_base)
