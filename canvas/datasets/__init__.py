@@ -54,45 +54,6 @@ PATHS_REGISTERED = {
     'zara01_raw_mean_non_ood_seg3': Z01_RAW_MEAN_NON_OOD_DIR / 'crowds_zara01_raw_mean_non_ood_seg3_231-316.npy',
     'zara01_raw_mean_non_ood_seg4': Z01_RAW_MEAN_NON_OOD_DIR / 'crowds_zara01_raw_mean_non_ood_seg4_478-799.npy',
 
-    'zara01_raw_mean_ood_seg1': Z01_RAW_MEAN_OOD_DIR / 'crowds_zara01_raw_mean_ood_seg1_18-123.npy',
-    'zara01_raw_mean_ood_seg2': Z01_RAW_MEAN_OOD_DIR / 'crowds_zara01_raw_mean_ood_seg2_131-230.npy',
-    'zara01_raw_mean_ood_seg3': Z01_RAW_MEAN_OOD_DIR / 'crowds_zara01_raw_mean_ood_seg3_317-477.npy',
-    'zara01_raw_mean_ood_seg4': Z01_RAW_MEAN_OOD_DIR / 'crowds_zara01_raw_mean_ood_seg4_800-901.npy',
-
-    # --- snippets_zara01: raw_quantile ---
-    'zara01_raw_quantile_non_ood_seg2': Z01_RAW_QUANTILE_NON_OOD_DIR / 'crowds_zara01_raw_quantile_non_ood_seg2_126-812.npy',
-    'zara01_raw_quantile_ood_seg1':     Z01_RAW_QUANTILE_OOD_DIR     / 'crowds_zara01_raw_quantile_ood_seg1_18-125.npy',
-    'zara01_raw_quantile_ood_seg2':     Z01_RAW_QUANTILE_OOD_DIR     / 'crowds_zara01_raw_quantile_ood_seg2_813-901.npy',
-
-    # =================== NEW: snippets_zara01_20 ===================
-
-    # raw_mean / non_ood
-    'zara01_20_raw_mean_non_ood_seg1': Z01_20_RAW_MEAN_NON_OOD_DIR / 'crowds_zara01_raw_mean_non_ood_seg1_0-37.npy',
-    'zara01_20_raw_mean_non_ood_seg2': Z01_20_RAW_MEAN_NON_OOD_DIR / 'crowds_zara01_raw_mean_non_ood_seg2_104-150.npy',
-    'zara01_20_raw_mean_non_ood_seg3': Z01_20_RAW_MEAN_NON_OOD_DIR / 'crowds_zara01_raw_mean_non_ood_seg3_211-336.npy',
-    'zara01_20_raw_mean_non_ood_seg4': Z01_20_RAW_MEAN_NON_OOD_DIR / 'crowds_zara01_raw_mean_non_ood_seg4_458-819.npy',
-    'zara01_20_raw_mean_non_ood_seg5': Z01_20_RAW_MEAN_NON_OOD_DIR / 'crowds_zara01_raw_mean_non_ood_seg5_901-901.npy',
-
-    # raw_mean / ood
-    'zara01_20_raw_mean_ood_seg1': Z01_20_RAW_MEAN_OOD_DIR / 'crowds_zara01_raw_mean_ood_seg1_38-103.npy',
-    'zara01_20_raw_mean_ood_seg2': Z01_20_RAW_MEAN_OOD_DIR / 'crowds_zara01_raw_mean_ood_seg2_151-210.npy',
-    'zara01_20_raw_mean_ood_seg3': Z01_20_RAW_MEAN_OOD_DIR / 'crowds_zara01_raw_mean_ood_seg3_337-457.npy',
-    'zara01_20_raw_mean_ood_seg4': Z01_20_RAW_MEAN_OOD_DIR / 'crowds_zara01_raw_mean_ood_seg4_820-900.npy',
-
-    # raw_quantile / non_ood
-    'zara01_20_raw_quantile_non_ood_seg1': Z01_20_RAW_QUANTILE_NON_OOD_DIR / 'crowds_zara01_raw_quantile_non_ood_seg1_0-37.npy',
-    'zara01_20_raw_quantile_non_ood_seg2': Z01_20_RAW_QUANTILE_NON_OOD_DIR / 'crowds_zara01_raw_quantile_non_ood_seg2_106-832.npy',
-    'zara01_20_raw_quantile_non_ood_seg3': Z01_20_RAW_QUANTILE_NON_OOD_DIR / 'crowds_zara01_raw_quantile_non_ood_seg3_901-901.npy',
-
-    # raw_quantile / ood
-    'zara01_20_raw_quantile_ood_seg1': Z01_20_RAW_QUANTILE_OOD_DIR / 'crowds_zara01_raw_quantile_ood_seg1_38-105.npy',
-    'zara01_20_raw_quantile_ood_seg2': Z01_20_RAW_QUANTILE_OOD_DIR / 'crowds_zara01_raw_quantile_ood_seg2_833-900.npy',
-# --- snippets_zara01: raw_mean_stats (simplified keys, no timestep ranges) ---
-'zara01_raw_mean_stats_non_ood_seg1': Z01_RAW_MEAN_STATS_NON_OOD_DIR / 'crowds_zara01_raw_mean_stats_non_ood_seg1_0-101.npy',
-'zara01_raw_mean_stats_non_ood_seg2': Z01_RAW_MEAN_STATS_NON_OOD_DIR / 'crowds_zara01_raw_mean_stats_non_ood_seg2_211-901.npy',
-
-'zara01_raw_mean_stats_ood_seg1':     Z01_RAW_MEAN_STATS_OOD_DIR     / 'crowds_zara01_raw_mean_stats_ood_seg1_102-210.npy',
-"""
 # (manifest for reference)
 # Z01_RAW_MEAN_STATS_DIR / 'crowds_zara01_raw_mean_stats_manifest.json'
 
