@@ -44,7 +44,7 @@ def running_cost(state, action, goal_x, goal_y, d_min):
     goal_cost = (x - goal_x) ** 2 + (y - goal_y) ** 2
     d = state[..., 3]     # dist_0[k]
     collision_cost = torch.where(d <= d_min, 1., 0.)    # binary variables indicating collisions
-    weight = 1e-3   # magnitude of the cost
+    weight = 1e3   # magnitude of the cost
     return goal_cost + weight * collision_cost
 
 def terminal_cost(state, action, goal_x, goal_y, d_min):
@@ -53,13 +53,11 @@ def terminal_cost(state, action, goal_x, goal_y, d_min):
     goal_cost = (x - goal_x) ** 2 + (y - goal_y) ** 2
 
     collision_cost = torch.where(d <= d_min, 1., 0.)
-    weight = 1e-3
+    weight = 1e3
     return 10. * goal_cost + weight * collision_cost
 
 
-
 def compute_mppi_state(obs, p_dict, prediction_horizon):
-
     x, y, th = obs['ego']['position_x'], obs['ego']['position_y'], obs['ego']['orientation_z']
     non_ego = obs['non-ego']        # observed trajectories of active non-ego agents
     # If there is no non-ego agent, set the min. distance to +inf.
@@ -110,15 +108,32 @@ class KernelMPPI:
 
         return
 
-    def __call__(self, obs, prediction_res):
+    def __call__(self, obs, prediction_res, change_controller_state=False):
         state = compute_mppi_state(obs, prediction_res, prediction_horizon=self._prediction_horizon)
-        u = self._mppi.command(state, shift_nominal_trajectory=True)
+        u = self._mppi.command(state, shift_nominal_trajectory=change_controller_state)
 
         state_torch = torch.tensor(state).to(self.device)
         rollout = self._mppi.get_rollouts(state_torch)
+        X = rollout[0]
 
-        controller_info = {}
+        U = self._mppi.U
+        cost_to_go = 0.
+        for t in range(len(rollout) - 1):
+            cost_to_go = cost_to_go + self._running_cost(X[t], U[t])
 
-        controller_info['rollout'] = rollout[0]
+        cost_to_go = cost_to_go + self._terminal_cost(X, U)
+        controller_info = {'X': X, 'U': U, 'cost_to_go': cost_to_go}
 
         return u.detach().cpu().numpy(), controller_info
+
+    def cost_to_go(self, obs, prediction_res, U):
+        state = compute_mppi_state(obs, prediction_res, prediction_horizon=self._prediction_horizon)
+        state_torch = torch.tensor(state).to(self.device)
+        rollout = self._mppi.get_rollouts(state_torch, U=U)
+        X = rollout[0]
+
+        rollout_cost = 0.
+        for t in range(len(rollout) - 1):
+            rollout_cost = rollout_cost + self._running_cost(X[t], U[t])
+        rollout_cost = rollout_cost + self._terminal_cost(X, U)
+        return rollout_cost

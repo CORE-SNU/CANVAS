@@ -3,5 +3,6 @@ from .grid_solver import GridMPC
 from .sampling_based_mpc import SamplingBasedMPC
 from .ecp_mpc import EgocentricCPMPC
 from .mppi import KernelMPPI
+from canvas.controllers.mpc import BaseMPC
 
 from canvas.controllers.mppi import KernelMPPI

@@ -1,8 +1,5 @@
-import random
 import numpy as np
-from typing import List, Dict
 
-from sympy import intervals
 
 
 class DelayedACI:

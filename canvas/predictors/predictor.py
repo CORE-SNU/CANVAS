@@ -54,7 +54,8 @@ class Predictors:
                 'univ': 'univ_vel_ar3',
                 'zara1': 'zara01_vel_ar3',
                 'zara2': 'zara02_vel_ar3',
-                'snu-asri': 'lobby_data_ar3'
+                'snu-asri': 'snu-asri_ar3',
+                'snu-asri-ood': 'snu-asri_ar3'
             }
 
             if dataset in trajectron_dirnames:
@@ -88,7 +89,7 @@ class Predictors:
             elif(dataset=='zara02' or dataset=='zara2'):
                 model_dir="canvas/predictors/eigen/models/zara02/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-zara02.json"
-            elif(dataset=='lobby' or dataset=='lobby_data'):
+            elif(dataset=='snu-asri' or dataset=='snu-asri-ood'):
                 model_dir="canvas/predictors/eigen/models/lobby_data/model_best.pth"
                 cfg="canvas/predictors/eigen/json_files/eigentrajectory-stgcnn-lobby_data.json"
             else:
@@ -134,7 +135,7 @@ class Predictors:
                 k_path='canvas/predictors/koopcast/data/crowds_zara02_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/crowds_zara02_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/crowds_zara02_mdn.pt'
-            elif(dataset=='lobby' or dataset=='lobby_data'):
+            elif(dataset=='snu-asri' or dataset=='snu-asri-ood'):
                 k_path='canvas/predictors/koopcast/data/0_koopman_K_1.npy'
                 cfg='canvas/predictors/koopcast/data/0_cfg.json'
                 mdn_pt='canvas/predictors/koopcast/data/0_mdn.pt'
@@ -171,8 +172,8 @@ class Predictors:
                 'zara2':      ("/config/zara02.py",     "/models/zara02"),
 
                 # Lobby
-                'lobby':      ("/config/lobby_data.py", "/models/lobby"),
-                'lobby_data': ("/config/lobby_data.py", "/models/lobby"),
+                'snu-asri':      ("/config/lobby_data.py", "/models/lobby"),
+                'snu-asri-ood': ("/config/lobby_data.py", "/models/lobby"),
             }
 
             if key not in cfg_model_map:
@@ -202,8 +203,8 @@ class Predictors:
                 'zara1':     'social-stgcnn-zara1',
                 'zara02':    'social-stgcnn-zara2',   # handle 02 -> 2
                 'zara2':     'social-stgcnn-zara2',
-                'lobby':     'social-stgcnn-lobby_data',
-                'lobby_data':'social-stgcnn-lobby_data',
+                'snu-asri':     'social-stgcnn-lobby_data',
+                'snu-asri':'social-stgcnn-lobby_data',
             }
 
             if key not in folder_map:

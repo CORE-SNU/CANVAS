@@ -22,7 +22,7 @@ class controllers:
 
         elif name in ("grid", "gridmpc"):
             # Grid-based MPC
-            self.ControllerModel = GridMPC(n_steps=prediction_len, dt=dt)
+            self.ControllerModel = GridMPC(prediction_horizon=prediction_len, dt=dt)
 
         elif name in ("sampling", "samplingmpc"):
             # Sampling-based MPC

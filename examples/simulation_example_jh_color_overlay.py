@@ -95,7 +95,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor):
             dataset=dataset_label,
             device='cpu'
         )# linear predictor as comparison
-        controller = GridMPC(n_steps=prediction_horizon, dt=env.dt)
+        controller = GridMPC(prediction_horizon=prediction_horizon, dt=env.dt)
         # controller_gt = GridMPC(n_steps=prediction_horizon, dt=dt)  # for GT/oracle control input
 
         # ---- CP module (updated once per frame) ----
