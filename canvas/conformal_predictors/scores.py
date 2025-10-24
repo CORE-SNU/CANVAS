@@ -39,7 +39,7 @@ class ActionDivergenceScoreFunction(ScoreFunction):
 
         action_gt = action_gt
 
-        return np.sum((action - action_gt) ** 2) ** .5 / np.sum((action_base - action_gt) ** 2 + 1e-6) ** .5
+        return np.sum((action - action_gt) ** 2+ 1e-6) ** .5 / np.sum((action_base - action_gt) ** 2 + 1e-6) ** .5
 
     def update(self, obs):
         o = obs['non-ego']
@@ -86,7 +86,7 @@ class PlanningRegretScoreFunction(ScoreFunction):
         cost = controller.cost_to_go(obs=past_obs, prediction_res=ground_truth, U=U).item()
         cost_base = controller.cost_to_go(obs=past_obs, prediction_res=ground_truth, U=U_base).item()
 
-        return (cost - cost_gt) / (cost_base - cost_gt + 1e-6)
+        return (cost - cost_gt+ 1e-6) / (cost_base - cost_gt + 1e-6)
 
     def update(self, obs):
         o = obs['non-ego']

@@ -196,13 +196,13 @@ class Environment:
         assert self._path_to_frames is not None and self._path_to_save is not None
         plt.clf(), plt.cla()
         fig, ax = plt.subplots()
-        if str(getattr(self, "dataset_label", "")).lower() == "snu-asri":
+        if str(getattr(self, "dataset_label", "")).lower() == "snu-asri" or str(getattr(self, "dataset_label", "")).lower() == "lobby":
             frame_path = "lobby3.png"  # local file
         else:
             frame_path = os.path.join(self._path_to_frames, self.dataset_label, f"{self._step}.png")
         #frame_path = os.path.join(self._path_to_frames, self.dataset_label, '{}.png'.format(self._step))
         image = cv2.imread(frame_path)
-        if self.dataset_label.lower() == "snu-asri":
+        if self.dataset_label.lower() == "snu-asri" or self.dataset_label.lower() == "lobby":
             ax.imshow(image, cmap='gray', alpha=0.6, extent=(-3.0, 8.5, -9.5, 1.5))
         else:
             ax.imshow(image, cmap='gray', alpha=0.6)
@@ -300,7 +300,7 @@ class Environment:
 
 
         h, w, _ = image.shape
-        if self.dataset_label.lower() == "snu-asri":
+        if self.dataset_label.lower() == "snu-asri" or self.dataset_label.lower() == "lobby":
             ax.set_xlim(-3.0, 8.5)
             ax.set_ylim(1.5, -9.5)
         else:

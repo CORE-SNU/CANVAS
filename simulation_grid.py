@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import torch
 from copy import deepcopy
 
-from canvas.controllers import KernelMPPI
+from canvas.controllers import BaseMPC
 
 from canvas.datasets import RegisteredDatasets
 from canvas.envs.env_new import Environment
@@ -52,7 +52,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
         prediction_horizon=prediction_horizon,
         path_to_frames='/media/sju5379/F6340D35340CF9FF/euped_assets/frames',
         # directory from which the parsed frames are loaded
-        path_to_save='./viz_mppi_example'  # directory to save the visualization result
+        path_to_save='./viz_grid_example'  # directory to save the visualization result
     )
 
     # -----------------------------
@@ -88,17 +88,8 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
 
         ROBOT_RAD = .4
         d_min = ROBOT_RAD + .1 / np.sqrt(2.)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        mppi_params = {
-            "num_samples": 500,
-            "noise_mu": torch.zeros(2, dtype=torch.float, device=device),
-            "noise_sigma": torch.diag(torch.tensor([1., 1.], dtype=torch.float, device=device)),
-            "u_max": torch.tensor([.8, .7], dtype=torch.float, device=device),
-            "lambda_": 1,
-            "device": device
-        }
 
-        kmppi = KernelMPPI(prediction_horizon=prediction_horizon, dt=env.dt, mppi_params=mppi_params, goal=goal_pos, d_min=d_min)
+        mpc = BaseMPC(prediction_horizon=prediction_horizon, dt=env.dt, goal=goal_pos, d_min=d_min)
 
         # ---- CP module (updated once per frame) ----
 
@@ -124,6 +115,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             max_score=max_score_pr,
             sample_size=20
         )
+
 
         obs, simulation_info = env.reset()
         truncated = False
@@ -164,17 +156,16 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             competency_indices_ad.append(competency_idx_ad)
             competency_indices_pr.append(competency_idx_pr)
 
-            kmppi_base = deepcopy(kmppi)
-            u, controller_info = kmppi(obs, prediction_res, change_controller_state=True)
-            u2, controller_info2 = kmppi_base(obs, prediction_res_base)
+            mpc_base = deepcopy(mpc)
+            u, controller_info = mpc(obs, prediction_res)
+            u2, controller_info2 = mpc_base(obs, prediction_res_base)
 
             U = controller_info['U']
             U2 = controller_info2['U']
 
-
             score_ftn_ad.save_snapshot(
                 obs=obs,
-                controller=deepcopy(kmppi),
+                controller=deepcopy(mpc),
                 action=u,
                 action_base=u2,
                 prediction_res=prediction_res,
@@ -183,7 +174,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
 
             score_ftn_pr.save_snapshot(
                 obs=obs,
-                controller=deepcopy(kmppi),
+                controller=deepcopy(mpc),
                 U=U,
                 U_base=U2,
                 prediction_res=prediction_res,
@@ -195,7 +186,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             if visualize:
                 fig, ax = env.render(c=competency_indices_ad, open_loop=controller_info['X'][:, :2])
                 ax.legend()
-                fig.savefig(os.path.join('./viz_mppi_example', '{:03d}.png'.format(env.timestep)), bbox_inches='tight',
+                fig.savefig(os.path.join('./viz_grid_example', '{:03d}.png'.format(env.timestep)), bbox_inches='tight',
                             pad_inches=0)
                 plt.close()
 
@@ -211,7 +202,6 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
 
     return
 
-
 if __name__ == "__main__":
     # TODO: write -h?
     parser = argparse.ArgumentParser()
@@ -224,7 +214,7 @@ if __name__ == "__main__":
     parser.add_argument('--goal_y', type=float, default=1.0)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
 
-    parser.add_argument('--save_video', type=bool, default=False)
+    parser.add_argument('--save_video', type=bool, default=True)
     parser.add_argument('--video_fps', type=float, default=2.5)
 
     parser.add_argument("--overlay", type=bool, default=True,
