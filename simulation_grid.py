@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import torch
 from copy import deepcopy
 
-from canvas.controllers import KernelMPPI
+from canvas.controllers import BaseMPC
 
 from canvas.datasets import RegisteredDatasets
 from canvas.envs.env_new import Environment
@@ -28,8 +28,8 @@ Simulation pipeline (per frame):
 
 def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visualize: bool = False):
     init_robot_pose = {
-        'position_x': 0.,
-        'position_y': -5.,
+        'position_x': 12.,
+        'position_y': 5.,
         'orientation_z': np.pi
     }
     goal_pos = np.array([goal_x, goal_y])
@@ -88,17 +88,8 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
 
         ROBOT_RAD = .4
         d_min = ROBOT_RAD + .1 / np.sqrt(2.)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        mppi_params = {
-            "num_samples": 500,
-            "noise_mu": torch.zeros(2, dtype=torch.float, device=device),
-            "noise_sigma": torch.diag(torch.tensor([1., 1.], dtype=torch.float, device=device)),
-            "u_max": torch.tensor([.8, .7], dtype=torch.float, device=device),
-            "lambda_": 1,
-            "device": device
-        }
 
-        kmppi = KernelMPPI(prediction_horizon=prediction_horizon, dt=env.dt, mppi_params=mppi_params, goal=goal_pos, d_min=d_min)
+        mpc = BaseMPC(prediction_horizon=prediction_horizon, dt=env.dt, goal=goal_pos, d_min=d_min)
 
         # ---- CP module (updated once per frame) ----
 
@@ -165,17 +156,16 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             competency_indices_ad.append(competency_idx_ad)
             competency_indices_pr.append(competency_idx_pr)
 
-            kmppi_base = deepcopy(kmppi)
-            u, controller_info = kmppi(obs, prediction_res, change_controller_state=True)
-            u2, controller_info2 = kmppi_base(obs, prediction_res_base)
+            mpc_base = deepcopy(mpc)
+            u, controller_info = mpc(obs, prediction_res)
+            u2, controller_info2 = mpc_base(obs, prediction_res_base)
 
             U = controller_info['U']
             U2 = controller_info2['U']
 
-
             score_ftn_ad.save_snapshot(
                 obs=obs,
-                controller=deepcopy(kmppi),
+                controller=deepcopy(mpc),
                 action=u,
                 action_base=u2,
                 prediction_res=prediction_res,
@@ -184,7 +174,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
 
             score_ftn_pr.save_snapshot(
                 obs=obs,
-                controller=deepcopy(kmppi),
+                controller=deepcopy(mpc),
                 U=U,
                 U_base=U2,
                 prediction_res=prediction_res,
@@ -212,7 +202,6 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
 
     return
 
-
 if __name__ == "__main__":
     # TODO: write -h?
     parser = argparse.ArgumentParser()
@@ -222,7 +211,7 @@ if __name__ == "__main__":
     parser.add_argument('--predictor_base', type=str, default="linear")
 
     parser.add_argument('--goal_x', type=float, default=3.0)  # 8.0 , 6.0
-    parser.add_argument('--goal_y', type=float, default=1.0)  # 0.2 , -6.0
+    parser.add_argument('--goal_y', type=float, default=6.0)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
 
     parser.add_argument('--save_video', type=bool, default=False)
