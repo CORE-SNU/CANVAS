@@ -89,6 +89,7 @@ class Environment:
         
         homography_path = ASSET_DIR / 'homographies' / (dataset_label + '.txt')
         self.dataset_label=dataset_label
+        print(homography_path)
         assert os.path.exists(homography_path)
         self._H = np.loadtxt(homography_path, dtype=float)
 

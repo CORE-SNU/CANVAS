@@ -342,8 +342,8 @@ pyrightconfig.json
 /canvas/datasets/eth-ucy/
 /canvas/datasets/snu-asri/
 /viz_example/
-/CANVAS/assets/
-assets/datasets/eth-ucy/
-assets/
+assets/datasets/
+assets/models/
+assets/videos/
 viz_example_snippets_id/
 viz_example_lobby/

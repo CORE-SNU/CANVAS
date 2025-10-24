@@ -28,8 +28,8 @@ Simulation pipeline (per frame):
 
 def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visualize: bool = False):
     init_robot_pose = {
-        'position_x': 12.,
-        'position_y': 5.,
+        'position_x': 0.,
+        'position_y': -5.,
         'orientation_z': np.pi
     }
     goal_pos = np.array([goal_x, goal_y])
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     parser.add_argument('--predictor_base', type=str, default="linear")
 
     parser.add_argument('--goal_x', type=float, default=3.0)  # 8.0 , 6.0
-    parser.add_argument('--goal_y', type=float, default=6.0)  # 0.2 , -6.0
+    parser.add_argument('--goal_y', type=float, default=1.0)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
 
     parser.add_argument('--save_video', type=bool, default=False)
