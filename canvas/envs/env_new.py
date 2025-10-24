@@ -83,11 +83,12 @@ class Environment:
         if "zara01" in dataset.name:
             dataset_label = "zara1"
         elif dataset.name == "snu-asri":
-            dataset_label = "Lobby"
+            dataset_label = "snu-asri"
         else:
             dataset_label = dataset.name
         
         homography_path = ASSET_DIR / 'homographies' / (dataset_label + '.txt')
+
         self.dataset_label=dataset_label
         assert os.path.exists(homography_path)
         self._H = np.loadtxt(homography_path, dtype=float)

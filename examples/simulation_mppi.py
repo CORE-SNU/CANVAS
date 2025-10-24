@@ -125,7 +125,6 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             sample_size=20
         )
 
-
         obs, simulation_info = env.reset()
         truncated = False
 
