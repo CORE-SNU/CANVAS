@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
-
-predictors=(linear gp eigen traj koopcast socialvae socialstgcnn)
-datasets=(ETH Hotel Univ Zara01 Zara02)
-
-for predictor in "${predictors[@]}"; do
-  for dataset in "${datasets[@]}"; do
-    echo "Running with predictor=${predictor}, dataset=${dataset}"
-    python simulation_video_spectrum_mpl_contCI.py --predictor "$predictor" --dataset "$dataset"
-  done
-done
+python simulation_mppi.py --dataset snu-asri-ood --predictor socialstgcnn
+python simulation_grid.py --dataset snu-asri-ood --predictor socialstgcnn
+python simulation_mppi.py --dataset snu-asri --predictor socialstgcnn
+python simulation_grid.py --dataset snu-asri --predictor socialstgcnn
+python simulation_mppi.py --dataset snu-asri-ood --predictor eigen
+python simulation_grid.py --dataset snu-asri-ood --predictor eigen
+python simulation_mppi.py --dataset snu-asri --predictor eigen
+python simulation_grid.py --dataset snu-asri --predictor eigen
+python simulation_mppi.py --dataset snu-asri-ood --predictor koopcast
+python simulation_grid.py --dataset snu-asri-ood --predictor koopcast
+python simulation_mppi.py --dataset snu-asri --predictor koopcast
+python simulation_grid.py --dataset snu-asri --predictor koopcast
+python simulation_mppi.py --dataset snu-asri-ood --predictor STGCNN
+python simulation_grid.py --dataset snu-asri-ood --predictor STGCNN
+python simulation_mppi.py --dataset snu-asri --predictor STGCNN
+python simulation_grid.py --dataset snu-asri --predictor STGCNN
+python simulation_mppi.py --dataset snu-asri-ood --predictor linear
+python simulation_grid.py --dataset snu-asri-ood --predictor linear
+python simulation_mppi.py --dataset snu-asri --predictor linear
+python simulation_grid.py --dataset snu-asri --predictor linear

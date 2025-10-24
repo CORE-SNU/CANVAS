@@ -204,7 +204,7 @@ class Predictors:
                 'zara02':    'social-stgcnn-zara2',   # handle 02 -> 2
                 'zara2':     'social-stgcnn-zara2',
                 'snu-asri':     'social-stgcnn-lobby_data',
-                'snu-asri':'social-stgcnn-lobby_data',
+                'snu-asri-ood':'social-stgcnn-lobby_data',
             }
 
             if key not in folder_map:

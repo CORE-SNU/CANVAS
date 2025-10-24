@@ -28,8 +28,8 @@ Simulation pipeline (per frame):
 
 def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visualize: bool = False):
     init_robot_pose = {
-        'position_x': 12.,
-        'position_y': 5.,
+        'position_x': 0.,
+        'position_y': -5.,
         'orientation_z': np.pi
     }
     goal_pos = np.array([goal_x, goal_y])
@@ -52,7 +52,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
         prediction_horizon=prediction_horizon,
         path_to_frames='/media/sju5379/F6340D35340CF9FF/euped_assets/frames',
         # directory from which the parsed frames are loaded
-        path_to_save='./viz_mppi_example'  # directory to save the visualization result
+        path_to_save='./viz_grid_example'  # directory to save the visualization result
     )
 
     # -----------------------------
@@ -186,7 +186,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             if visualize:
                 fig, ax = env.render(c=competency_indices_ad, open_loop=controller_info['X'][:, :2])
                 ax.legend()
-                fig.savefig(os.path.join('./viz_mppi_example', '{:03d}.png'.format(env.timestep)), bbox_inches='tight',
+                fig.savefig(os.path.join('./viz_grid_example', '{:03d}.png'.format(env.timestep)), bbox_inches='tight',
                             pad_inches=0)
                 plt.close()
 
@@ -211,10 +211,10 @@ if __name__ == "__main__":
     parser.add_argument('--predictor_base', type=str, default="linear")
 
     parser.add_argument('--goal_x', type=float, default=3.0)  # 8.0 , 6.0
-    parser.add_argument('--goal_y', type=float, default=6.0)  # 0.2 , -6.0
+    parser.add_argument('--goal_y', type=float, default=1.0)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
 
-    parser.add_argument('--save_video', type=bool, default=False)
+    parser.add_argument('--save_video', type=bool, default=True)
     parser.add_argument('--video_fps', type=float, default=2.5)
 
     parser.add_argument("--overlay", type=bool, default=True,

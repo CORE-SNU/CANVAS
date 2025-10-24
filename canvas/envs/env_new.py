@@ -89,7 +89,6 @@ class Environment:
         
         homography_path = ASSET_DIR / 'homographies' / (dataset_label + '.txt')
         self.dataset_label=dataset_label
-        print(homography_path)
         assert os.path.exists(homography_path)
         self._H = np.loadtxt(homography_path, dtype=float)
 
@@ -202,7 +201,8 @@ class Environment:
             frame_path = os.path.join(self._path_to_frames, self.dataset_label, f"{self._step}.png")
         #frame_path = os.path.join(self._path_to_frames, self.dataset_label, '{}.png'.format(self._step))
         image = cv2.imread(frame_path)
-        if self.dataset_label.lower() == "snu-asri":
+        if self.dataset_label.lower() == "snu-asri" or self.dataset_label.lower() == "lobby":
+            print(frame_path)
             ax.imshow(image, cmap='gray', alpha=0.6, extent=(-3.0, 8.5, -9.5, 1.5))
         else:
             ax.imshow(image, cmap='gray', alpha=0.6)
