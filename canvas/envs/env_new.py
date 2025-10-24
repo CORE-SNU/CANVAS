@@ -195,7 +195,7 @@ class Environment:
         assert self._path_to_frames is not None and self._path_to_save is not None
         plt.clf(), plt.cla()
         fig, ax = plt.subplots()
-        if str(getattr(self, "dataset_label", "")).lower() == "snu-asri":
+        if str(getattr(self, "dataset_label", "")).lower() == "snu-asri" or str(getattr(self, "dataset_label", "")).lower() == "lobby":
             frame_path = "lobby3.png"  # local file
         else:
             frame_path = os.path.join(self._path_to_frames, self.dataset_label, f"{self._step}.png")

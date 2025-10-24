@@ -338,7 +338,7 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/linux,macos,pycharm,python
 /viz/
 /src/canvas/assets/final/frames/
-/canvas/assets/final/frames/
+assets/frames/
 /canvas/datasets/eth-ucy/
 /canvas/datasets/snu-asri/
 /viz_example/
@@ -347,3 +347,5 @@ assets/models/
 assets/videos/
 viz_example_snippets_id/
 viz_example_lobby/
+/viz_grid_example/
+/viz_mppi_example/
