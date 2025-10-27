@@ -63,7 +63,7 @@ class Predictors:
             else:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
-                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri, snu-asri-ood"
                 )
 
             self.PredictorModel = TrajectronPredictor(
@@ -95,7 +95,7 @@ class Predictors:
             else:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
-                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri."
+                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri, snu-asri-ood."
                 )
 
             self.PredictorModel = EigenTrajectoryPredictor(
@@ -142,7 +142,7 @@ class Predictors:
             else:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
-                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri."
+                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri, snu-asri-ood."
                     )
 
             self.PredictorModel=Koopcast_predictor(
@@ -179,7 +179,7 @@ class Predictors:
             if key not in cfg_model_map:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
-                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri, snu-asri-ood."
                 )
 
             cfg, model_path = cfg_model_map[key]
@@ -210,7 +210,7 @@ class Predictors:
             if key not in folder_map:
                 raise ValueError(
                     f"Unknown dataset '{dataset}'. "
-                    "Expected one of: ETH, Hotel, Univ, Zara01, Zara02, Lobby."
+                    "Expected one of: eth, hotel, univ, zara1, zara2, snu-asri, snu-asri-ood."
                 )
 
             model_dir = f"/checkpoint/{folder_map[key]}"
