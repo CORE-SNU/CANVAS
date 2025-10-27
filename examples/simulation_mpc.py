@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 import torch
 from copy import deepcopy
 
-from canvas.controllers import KernelMPPI
+from canvas.controllers import BaseMPC
 
 from canvas.datasets import RegisteredDatasets
 from canvas.envs.env_new import Environment
-from canvas.conformal_predictors.scores_new import ActionDivergenceScoreFunction, PlanningRegretScoreFunction
+from canvas.conformal_predictors.scores_new import ActionDivergenceScoreFunction, PlanningRegretScoreFunction, PositionalDisplacementScoreFunction
 from canvas.conformal_predictors.aci import DelayedACI
 from canvas.competency_indices.core import CompetencyIndex
 
@@ -27,17 +27,25 @@ Simulation pipeline (per frame):
 """
 
 
-def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visualize: bool = False):
-    init_robot_pose = {
-        'position_x': 0.,
-        'position_y': -5.,
-        'orientation_z': np.pi
-    }
-    goal_pos = np.array([goal_x, goal_y])
-    t_begin = 1
-    t_end = 200
+def state_dict_from_vec(v):
+    return {'position_x': v[0], 'position_y': v[1], 'orientation_z': v[2]}
+
+
+def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = False):
 
     dataset = RegisteredDatasets[dataset_name]
+
+    # TODO: snu-asri
+    # TODO: manage as a config file?
+    scenario_configs = {
+        # 'zara1': {'init_robot_pose': np.array([14., 5., np.pi]), 'goal_pos': np.array([3., 6.])},
+        'zara1': {'init_robot_state': state_dict_from_vec(np.array([12., 5., np.pi])), 'goal_pos': np.array([3., 6.]), 't_begin': 1, 't_end': 100},
+        'zara2': {'init_robot_state': state_dict_from_vec(np.array([1., 6., 0.])), 'goal_pos': np.array([14., 5.]), 't_begin': 1, 't_end': 200},
+        'hotel': {'init_robot_state': state_dict_from_vec(np.array([-1.5, 0., -np.pi / 2])), 'goal_pos': np.array([2., -6.]), 't_begin': 78, 't_end': 200},
+        'eth': {'init_robot_state': state_dict_from_vec(np.array([5., 1.0, np.pi / 2.])), 'goal_pos': np.array([3., 10.]), 't_begin': 1, 't_end': 100},
+        'univ': {'init_robot_state': state_dict_from_vec(np.array([3.5, 2., np.pi / 4.])), 'goal_pos': np.array([11.5, 8.5]), 't_begin': 1, 't_end': 300},
+
+    }
 
     # Predictor horizon
     prediction_horizon = 12
@@ -45,10 +53,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
 
     env = Environment(
         dataset=dataset,
-        init_robot_state=init_robot_pose,
-        goal_pos=goal_pos,
-        t_begin=t_begin,
-        t_end=t_end,
+        **scenario_configs[dataset_name],
         history_len=history_len,
         prediction_horizon=prediction_horizon,
         path_to_frames='/media/sju5379/F6340D35340CF9FF/euped_assets/frames',
@@ -84,31 +89,33 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             device='cpu'
         )
 
+        # your controller goes here
+
         ROBOT_RAD = .4
         d_min = ROBOT_RAD + .1 / np.sqrt(2.)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        mppi_params = {
-            "num_samples": 500,
-            "noise_mu": torch.zeros(2, dtype=torch.float, device=device),
-            "noise_sigma": torch.diag(torch.tensor([1., 1.], dtype=torch.float, device=device)),
-            "u_max": torch.tensor([.8, .7], dtype=torch.float, device=device),
-            "lambda_": 1,
-            "device": device
-        }
 
-        kmppi = KernelMPPI(prediction_horizon=prediction_horizon, dt=env.dt, mppi_params=mppi_params, goal=goal_pos,
-                           d_min=d_min)
+        mpc = BaseMPC(prediction_horizon=prediction_horizon, dt=env.dt, goal=env.goal, d_min=d_min)
 
         # ---- CP module (updated once per frame) ----
+        max_score_pd = 10.
+        score_ftn_pd = PositionalDisplacementScoreFunction(prediction_len=prediction_horizon, step=6)
+        conformal_predictor_pd = DelayedACI(
+            target_miscoverage_level=0.8,
+            step_size=0.05,
+            delay=prediction_horizon,
+            max_score=max_score_pd,
+            sample_size=12
+        )
 
-        max_score = (1.6 ** 2 + 1.4 ** 2) ** .5  # diameter of the action space
+
+        max_score_ad = (1.6 ** 2 + 1.4 ** 2) ** .5  # diameter of the action space
         score_ftn_ad = ActionDivergenceScoreFunction(prediction_len=prediction_horizon)
         conformal_predictor_ad = DelayedACI(
             target_miscoverage_level=0.8,
             step_size=0.05,
             delay=prediction_horizon,
-            max_score=max_score,
-            sample_size=20
+            max_score=max_score_ad,
+            sample_size=12
         )
 
         max_score_pr = 800.
@@ -118,10 +125,11 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             step_size=0.05,
             delay=prediction_horizon,
             max_score=max_score_pr,
-            sample_size=20
+            sample_size=12
         )
 
-        indices = CompetencyIndex(prefix_len=t_begin)
+        indices = CompetencyIndex(prefix_len=scenario_configs[dataset_name]['t_begin'])
+        indices.register(score_ftn_pd, conformal_predictor_pd, name='positional_displacement')
         indices.register(score_ftn_ad, conformal_predictor_ad, name='action_divergence')
         indices.register(score_ftn_pr, conformal_predictor_pr, name='planning_regret')
 
@@ -146,19 +154,20 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             else:
                 indices.pad(val=0.5)
 
-            kmppi_base = deepcopy(kmppi)
-            u, controller_info = kmppi(obs, prediction_res, change_controller_state=True)
-            u2, controller_info2 = kmppi_base(obs, prediction_res_base)
+            mpc_base = deepcopy(mpc)
+            u, controller_info = mpc(obs, prediction_res)
+            u2, controller_info2 = mpc_base(obs, prediction_res_base)
 
             indices.save_snapshot(
                 {
                     'obs': obs,
-                    'controller': deepcopy(kmppi),
+                    'controller': deepcopy(mpc),
                     'action': u,
                     'action_base': u2,
                     'U': controller_info['U'],
                     'U_base': controller_info2['U'],
                     'prediction': prediction_res,
+                    'prediction_base': prediction_res_base,
                     'context': {}
                 }
             )
@@ -166,7 +175,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             obs, terminated, truncated, simulation_info = env.step(u)
 
             if visualize:
-                fig, ax = env.render(c=indices.get_history(name='action_divergence'), open_loop=controller_info['X'][:, :2])
+                fig, ax = env.render(c=indices.get_history(name='planning_regret'), open_loop=controller_info['X'][:, :2])
                 ax.legend()
                 fig.savefig(os.path.join('./viz_mppi_example', '{:03d}.png'.format(env.timestep)), bbox_inches='tight',
                             pad_inches=0)
@@ -179,6 +188,7 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
 
             frame += 1
 
+
         print('avg. competency index:', indices.get_average_values())
 
         fig, ax = plt.subplots()
@@ -187,11 +197,17 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
         ax.set_ylim(0., 1.)
         ax.grid(True)
 
-        for name in ['action_divergence', 'planning_regret']:
+        colors = {
+            'positional_displacement': '#008080',
+            'action_divergence': '#8f00ff',
+            'planning_regret': '#808000'
+        }
+        for name in ['positional_displacement', 'action_divergence', 'planning_regret']:
             c = indices.get_history(name=name)
-            ax.plot(c, label=name, linewidth=2)
-
-        ax.legend()
+            ax.plot(c, label=name.replace('_', ' ').title(), linewidth=2, color=colors[name])
+        ax.set_xlabel(r'$t$', fontsize=16)
+        ax.set_ylabel(r'$\mathcal{L}_t$', fontsize=16)
+        ax.legend(fontsize=16)
         fig.tight_layout()
         fig.savefig('indices.png')
 
@@ -206,27 +222,10 @@ if __name__ == "__main__":
     parser.add_argument('--predictor', type=str, default="traj")
     parser.add_argument('--predictor_base', type=str, default="linear")
 
-    parser.add_argument('--goal_x', type=float, default=3.0)  # 8.0 , 6.0
-    parser.add_argument('--goal_y', type=float, default=1.0)  # 0.2 , -6.0
     parser.add_argument('--num_iter', type=int, default=1)
 
-    parser.add_argument('--save_video', type=bool, default=False)
+    parser.add_argument('--visualize', action='store_true')
     parser.add_argument('--video_fps', type=float, default=2.5)
 
-    parser.add_argument("--overlay", type=bool, default=True,
-                        help="Use homography to draw history/GT/prediction on extracted real frames")
-    parser.add_argument("--frame_offset", type=int, default=40,
-                        help="Align sim time to real frames (index shift)")
-    parser.add_argument("--extracted_fps", type=float, default=2.5,
-                        help="FPS used by video_parser.py to extract frames")
-    parser.add_argument("--output_fps", type=float, default=10.0,
-                        help="Output MP4 FPS; defaults to extracted_fps")
-    parser.add_argument("--max_ped", type=float, default=3.0,
-                        help="Max pedestrians to consider (others ignored)")
-    parser.add_argument("--cont_CI", type=str, default="traj",
-                        help="Continuous CI type: traj, control, obj, ctrl_cost to map on video.")
-    parser.add_argument("--CI_t", type=int, default=3,
-                        help="CI to use for pred.")
     args = parser.parse_args()
-    main(args.goal_x, args.goal_y, args.num_iter, args.dataset, args.predictor, args.predictor_base,
-         visualize=args.save_video)
+    main(args.num_iter, args.dataset, args.predictor, args.predictor_base, visualize=args.visualize)

@@ -111,6 +111,10 @@ class Environment:
     def dt(self):
         return self._dt
 
+    @property
+    def goal(self):
+        return np.copy(self._goal)
+
     def _get_obs(self):
         """Get the history length amount of observed trajectories of all pedestrians up to the current step."""
 
@@ -201,6 +205,9 @@ class Environment:
         else:
             frame_path = os.path.join(self._path_to_frames, self.dataset_label, f"{self._step}.png")
         #frame_path = os.path.join(self._path_to_frames, self.dataset_label, '{}.png'.format(self._step))
+
+        assert os.path.exists(frame_path), frame_path
+
         image = cv2.imread(frame_path)
         if self.dataset_label.lower() == "snu-asri" or self.dataset_label.lower() == "lobby":
             ax.imshow(image, cmap='gray', alpha=0.6, extent=(-3.0, 8.5, -9.5, 1.5))

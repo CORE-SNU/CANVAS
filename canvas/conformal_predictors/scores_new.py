@@ -25,11 +25,43 @@ class ScoreFunction:
             if key not in snapshot:
                 raise KeyError(key)
 
-
     def update(self, obs):
         o = obs['non-ego']
         o_t = {key: val[-1] for key, val in o.items()}
         self._buffer.update(o=o_t)
+
+
+class PositionalDisplacementScoreFunction(ScoreFunction):
+    def __init__(self, prediction_len, step):
+        super().__init__(prediction_len=prediction_len)
+        self._set_keys(keys=['prediction', 'prediction_base'])
+        self._step = step
+
+    def __call__(self, *args, **kwargs):
+        # TODO: compared to other indices, this can exploit more recent observations, i.e., delay is smaller
+        # retrieve the context at t - N & use them for computing the baseline
+
+        prediction = self._past_snapshot['prediction'][-self._prediction_len]
+        prediction_base = self._past_snapshot['prediction_base'][-self._prediction_len]
+        # only data they are included in the prediction result
+        ground_truth = self._buffer.query(keys=prediction.keys())
+
+        i = self._step
+        d_max = 0.
+        for key, p in prediction.items():
+            if key in ground_truth:
+                g = ground_truth[key]
+                d = np.sum((p[i] - g[i]) ** 2) ** .5 if g.shape[0] > i else 0.
+                d_max = max(d, d_max)
+
+        d_max_base = 0.
+        for key, p in prediction_base.items():
+            if key in ground_truth:
+                g = ground_truth[key]
+                d = np.sum((p[i] - g[i]) ** 2) ** .5 if g.shape[0] > i else 0.
+                d_max_base = max(d, d_max_base)
+
+        return (d_max + self.EPS) / (d_max_base + self.EPS)
 
 
 class ActionDivergenceScoreFunction(ScoreFunction):
