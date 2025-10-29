@@ -41,8 +41,8 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
     # TODO: manage as a config file?
     scenario_configs = {
         # 'zara1': {'init_robot_pose': np.array([14., 5., np.pi]), 'goal_pos': np.array([3., 6.])},
-        'zara1': {'init_robot_state': state_dict_from_vec(np.array([12., 5., np.pi])), 'goal_pos': np.array([3., 6.]), 't_begin': 1, 't_end': 100},
-        'zara2': {'init_robot_state': state_dict_from_vec(np.array([14., 5.,0.])), 'goal_pos': np.array([1., 6.]), 't_begin': 1, 't_end': 200},
+        'zara1': {'init_robot_state': state_dict_from_vec(np.array([12., 5., np.pi])), 'goal_pos': np.array([3., 1.]), 't_begin': 1, 't_end': 100},
+        'zara2': {'init_robot_state': state_dict_from_vec(np.array([1., 6.,0.])), 'goal_pos': np.array([10., 1.]), 't_begin': 20, 't_end': 200},
         'hotel': {'init_robot_state': state_dict_from_vec(np.array([3., -8., -np.pi / 2])), 'goal_pos': np.array([-0.0, 0.0]), 't_begin': 58, 't_end': 120},
         'eth': {'init_robot_state': state_dict_from_vec(np.array([-3., 10., np.pi / 2.])), 'goal_pos': np.array([5., 4.0]), 't_begin': 15, 't_end': 70},
         'univ': {'init_robot_state': state_dict_from_vec(np.array([3.5, 2., np.pi / 4.])), 'goal_pos': np.array([11.5, 8.5]), 't_begin': 1, 't_end': 300},
@@ -217,8 +217,8 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
     return mean_over_iters
 
 
-DATASET_CHOICES   = ["zara2", "hotel", "eth", "univ", "zara1"]
-#DATASET_CHOICES   = [ "hotel", "eth"]
+DATASET_CHOICES   = ["eth", "hotel", "univ", "zara1", "zara2"]
+#DATASET_CHOICES   = [ "zara2"]
 PREDICTOR_CHOICES = ["koopcast","traj", "linear", "eigen", "SocialVAE", "STGCNN"]
 #PREDICTOR_CHOICES = ["traj"]
 
