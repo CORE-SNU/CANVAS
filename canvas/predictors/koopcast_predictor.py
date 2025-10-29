@@ -46,6 +46,7 @@ class Koopcast_predictor(BasePredictors):
             raise ValueError("MDN path not provided. Pass mdn_pt_path=... or add 'mdn_path' to cfg JSON.")
 
         self.K = _load_K(cfg["K_path"] if K_path is None else K_path)  # [D_z,D_z]
+
         self.mdn = _load_mdn(
             mdn_path,
             in_dim=int(cfg["feature_in_dim"]),

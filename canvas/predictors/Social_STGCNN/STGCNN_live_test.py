@@ -100,13 +100,14 @@ class STGCNN_Predictor(BasePredictors):
             args = pickle.load(f)
         self.model = social_stgcnn(n_stgcnn =args.n_stgcnn,n_txpcnn=args.n_txpcnn,
         output_feat=args.output_size,seq_len=args.obs_seq_len,
-        kernel_size=args.kernel_size,pred_seq_len=args.pred_seq_len).cuda()
-        self.model.load_state_dict(torch.load(model_path))
+        kernel_size=args.kernel_size,pred_seq_len=args.pred_seq_len)
+        self.model.load_state_dict(torch.load(model_path, map_location=device))
+        self.model.to(device)
 
         self.obs_len=history_len
         self.pred_len=prediction_len
         self.norm_lap_matr=True
-        self.device="cuda"
+        self.device=device
         self.dtype=torch.float32
         self.model_dir = model_dir
     @torch.no_grad()
