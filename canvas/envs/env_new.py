@@ -198,6 +198,11 @@ class Environment:
 
     def render(self, **kwargs):
         assert self._path_to_frames is not None and self._path_to_save is not None
+
+        mpl.rcParams['pdf.fonttype'] = 42
+        mpl.rcParams['ps.fonttype'] = 42
+
+
         plt.clf(), plt.cla()
         fig, ax = plt.subplots()
         if str(getattr(self, "dataset_label", "")).lower() == "snu-asri" or str(getattr(self, "dataset_label", "")).lower() == "lobby":
@@ -222,7 +227,7 @@ class Environment:
         # visualization parameters
         ego_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2}
         non_ego_h_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 1}
-        non_ego_f_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 1, 'color': 'tab:blue', 'alpha': 0.8, 'label': 'future'}
+        non_ego_f_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 1, 'color': 'tab:blue', 'alpha': 0.3, 'label': 'future'}
         arrowprops = {'arrowstyle': 'Fancy', 'mutation_scale': 30}
 
         if 'c' not in kwargs:
@@ -296,9 +301,29 @@ class Environment:
         # (optional) ego-motion plan
 
         if 'open_loop' in kwargs:
-            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'white', 'label': 'prediction'}
+            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'tab:cyan', 'label': 'open loop', 'alpha': 0.9}
             visualize_trajectory(
                 trajectory=kwargs['open_loop'],
+                H=H,
+                ax=ax,
+                c=None,
+                **ego_plan_params
+            )
+
+        if 'open_loop_base' in kwargs:
+            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'tab:pink', 'label': 'open loop (baseline)', 'alpha': 0.9}
+            visualize_trajectory(
+                trajectory=kwargs['open_loop_base'],
+                H=H,
+                ax=ax,
+                c=None,
+                **ego_plan_params
+            )
+
+        if 'open_loop_gt' in kwargs:
+            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'tab:gray', 'label': 'open loop (oracle)', 'alpha': 0.9}
+            visualize_trajectory(
+                trajectory=kwargs['open_loop_gt'],
                 H=H,
                 ax=ax,
                 c=None,

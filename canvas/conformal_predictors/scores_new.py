@@ -70,13 +70,16 @@ class ActionDivergenceScoreFunction(ScoreFunction):
         self._set_keys(keys=['controller', 'action', 'action_base', 'context', 'prediction', 'obs'])
 
     def __call__(self, *args, **kwargs):
+        # alias
+        past = self._past_snapshot
+        pl = self._prediction_len
         # retrieve the context at t - N & use them for computing the baseline
-        controller = self._past_snapshot['controller'][-self._prediction_len]
-        action = self._past_snapshot['action'][-self._prediction_len]
-        action_base = self._past_snapshot['action_base'][-self._prediction_len]
-        context = self._past_snapshot['context'][-self._prediction_len]
-        prediction = self._past_snapshot['prediction'][-self._prediction_len]
-        past_obs = self._past_snapshot['obs'][-self._prediction_len]
+        controller = past['controller'][-pl]
+        action = past['action'][-pl]
+        action_base = past['action_base'][-pl]
+        context = past['context'][-pl]
+        prediction = past['prediction'][-pl]
+        past_obs = past['obs'][-pl]
 
         # only data they are included in the prediction result
         ground_truth = self._buffer.query(keys=prediction.keys())
@@ -92,13 +95,17 @@ class PlanningRegretScoreFunction(ScoreFunction):
         self._set_keys(keys=['controller', 'U', 'U_base', 'context', 'prediction', 'obs'])
 
     def __call__(self, *args, **kwargs):
+
+        past = self._past_snapshot
+        pl = self._prediction_len
+
         # retrieve the context at t - N & use them for computing the baseline
-        controller = self._past_snapshot['controller'][-self._prediction_len]
-        U = self._past_snapshot['U'][-self._prediction_len]
-        U_base = self._past_snapshot['U_base'][-self._prediction_len]
-        context = self._past_snapshot['context'][-self._prediction_len]
-        prediction = self._past_snapshot['prediction'][-self._prediction_len]
-        past_obs = self._past_snapshot['obs'][-self._prediction_len]
+        controller = past['controller'][-pl]
+        U = past['U'][-pl]
+        U_base = past['U_base'][-pl]
+        context = past['context'][-pl]
+        prediction = past['prediction'][-pl]
+        past_obs = past['obs'][-pl]
 
         # only data they are included in the prediction result
         ground_truth = self._buffer.query(keys=prediction.keys())

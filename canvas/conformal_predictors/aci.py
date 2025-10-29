@@ -37,8 +37,9 @@ class DelayedACI:
 
     def update(self, score):
         self._past_scores.append(score)
-        err: bool = score <= self._past_quantiles[-self._delay]
-        self._alpha_t += self._lr * (self._alpha - err)
+        covered: bool = score <= self._past_quantiles[-self._delay]
+        self._alpha_t += self._lr * (self._alpha - covered)
+        return covered
 
     def fit(self):
         assert len(self._past_scores) > 0
