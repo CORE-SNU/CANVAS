@@ -158,3 +158,9 @@ You can run the simulation with "main_program.py" with some dedicated variables
 [2025-10-10 11:00] Changed tool's main code that accompany with "example" python code - 'main_program.py' (split existing code to 'main_program.py' & 'simulation.py')
 
 [2025-10-16] MPPI integrated into our codebase
+
+# Troubleshooting
+Run the following if QT platform plugin is messed up:
+```
+export QT_QPA_PLATFORM=offscreen
+```

@@ -1,19 +1,35 @@
+import math
+from typing import Tuple
 import numpy as np
 from canvas.conformal_predictors.cp_utils import HistoryBuffer
 
 
 class ScoreFunction:
-    def __init__(self, prediction_len):
+    def __init__(self, prediction_len, clip: float = math.inf):
+        assert clip > 0.
         self._prediction_len = prediction_len
         self._buffer = HistoryBuffer(history_length=prediction_len)
         self._past_snapshot = {}
-        self.EPS = 1e-6     # for preventing denominators from becoming 0
+        self.eps = 1e-6     # for preventing denominators from becoming 0
+        self.clip = clip    # for preventing the error ratio from growing unbounded
         pass
 
     def _set_keys(self, keys):
         self._past_snapshot = {key: [] for key in keys}
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> float:
+        """
+        post-processing of the computed errors to obtain the final rate
+        """
+        e, e_base = self.compute(*args, **kwargs)
+        unclipped = (e + self.eps) / (e_base + self.eps)
+        return min(unclipped, self.clip)
+
+    def compute(self, *args, **kwargs) -> Tuple[float, float]:
+        """
+        compute the errors of a given model & baseline
+        return (E^A_t, E^B_t)
+        """
         raise NotImplementedError
 
     def save_snapshot(self, snapshot):
@@ -32,12 +48,12 @@ class ScoreFunction:
 
 
 class PositionalDisplacementScoreFunction(ScoreFunction):
-    def __init__(self, prediction_len, step):
-        super().__init__(prediction_len=prediction_len)
+    def __init__(self, prediction_len, step, clip: float = math.inf):
+        super().__init__(prediction_len=prediction_len, clip=clip)
         self._set_keys(keys=['prediction', 'prediction_base'])
         self._step = step
 
-    def __call__(self, *args, **kwargs):
+    def compute(self, *args, **kwargs):
         # TODO: compared to other indices, this can exploit more recent observations, i.e., delay is smaller
         # retrieve the context at t - N & use them for computing the baseline
 
@@ -61,15 +77,15 @@ class PositionalDisplacementScoreFunction(ScoreFunction):
                 d = np.sum((p[i] - g[i]) ** 2) ** .5 if g.shape[0] > i else 0.
                 d_max_base = max(d, d_max_base)
 
-        return (d_max + self.EPS) / (d_max_base + self.EPS)
+        return d_max, d_max_base
 
 
 class ActionDivergenceScoreFunction(ScoreFunction):
-    def __init__(self, prediction_len):
-        super().__init__(prediction_len=prediction_len)
+    def __init__(self, prediction_len, clip: float = math.inf):
+        super().__init__(prediction_len=prediction_len, clip=clip)
         self._set_keys(keys=['controller', 'action', 'action_base', 'context', 'prediction', 'obs'])
 
-    def __call__(self, *args, **kwargs):
+    def compute(self, *args, **kwargs):
         # alias
         past = self._past_snapshot
         pl = self._prediction_len
@@ -86,15 +102,17 @@ class ActionDivergenceScoreFunction(ScoreFunction):
         action_gt, _ = controller(obs=past_obs, prediction_res=ground_truth, change_controller_state=False, **context)
         action_gt = action_gt
 
-        return np.sum((action - action_gt) ** 2 + self.EPS) ** .5 / np.sum((action_base - action_gt) ** 2 + self.EPS) ** .5
+        ad = np.sum((action - action_gt) ** 2) ** .5
+        ad_base = np.sum((action_base - action_gt) ** 2) ** .5
+        return ad, ad_base
 
 
 class PlanningRegretScoreFunction(ScoreFunction):
-    def __init__(self, prediction_len):
-        super().__init__(prediction_len=prediction_len)
+    def __init__(self, prediction_len, clip: float = math.inf):
+        super().__init__(prediction_len=prediction_len, clip=clip)
         self._set_keys(keys=['controller', 'U', 'U_base', 'context', 'prediction', 'obs'])
 
-    def __call__(self, *args, **kwargs):
+    def compute(self, *args, **kwargs):
 
         past = self._past_snapshot
         pl = self._prediction_len
@@ -114,5 +132,7 @@ class PlanningRegretScoreFunction(ScoreFunction):
         cost = controller.cost_to_go(obs=past_obs, prediction_res=ground_truth, U=U).item()
         cost_base = controller.cost_to_go(obs=past_obs, prediction_res=ground_truth, U=U_base).item()
 
-        return (cost - cost_gt + self.EPS) / (cost_base - cost_gt + self.EPS)
+        pr = cost - cost_gt
+        pr_base = cost_base - cost_gt
 
+        return pr, pr_base

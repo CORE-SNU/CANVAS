@@ -38,7 +38,9 @@ class DelayedACI:
     def update(self, score):
         self._past_scores.append(score)
         covered: bool = score <= self._past_quantiles[-self._delay]
-        self._alpha_t += self._lr * (self._alpha - covered)
+        err = 1. - covered
+        self._alpha_t += self._lr * (self._alpha  - err)
+        print(self._alpha_t)
         return covered
 
     def fit(self):
@@ -49,6 +51,6 @@ class DelayedACI:
         elif self._alpha_t >= 1.:
             q = 0.
         else:
-            q = np.quantile(self._past_scores[-sz:], q=self._alpha_t)
+            q = np.quantile(self._past_scores[-sz:], q=1.-self._alpha_t)
         self._past_quantiles.append(q)
         return q
