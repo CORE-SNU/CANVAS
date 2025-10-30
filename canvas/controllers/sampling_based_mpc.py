@@ -7,8 +7,8 @@ class SamplingBasedMPC:
         self._n_steps = n_steps
         self._dt = dt
 
-    def __call__(self, pos_x, pos_y, orientation_z, linear_x, angular_z, boxes, predictions, confidence_intervals, goal,**__):
-        paths, vels = self.generate_paths(pos_x, pos_y, orientation_z, linear_x, angular_z)
+    def __call__(self, position_x, position_y, orientation_z, linear_x, angular_z, boxes, predictions, confidence_intervals, goal,**__):
+        paths, vels = self.generate_paths(position_x, position_y, orientation_z, linear_x, angular_z)
         # paths, vels = self.generate_paths_wheel_vel(pos_x, pos_y, orientation_z, linear_x, angular_z)
         safe_paths, vels = self.filter_unsafe_paths(paths, vels, boxes, predictions, confidence_intervals)
         if safe_paths is None:

@@ -152,7 +152,7 @@ class Simulation():
             # --------- Controller (once per frame, with predictions) ---------
             velocity, controller_info, minimum, intermediate, terminal, control, minimal = self.controller(
                     **obs['ego'],
-                    cmd_linear_x=cmd_linear_x,
+                    linear_x=cmd_linear_x,
                     cmd_angular_z=cmd_angular_z,
                     boxes=self.persistent_static_boxes,
                     predictions=prediction_res,
