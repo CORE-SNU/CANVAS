@@ -9,8 +9,8 @@ from copy import deepcopy
 from canvas.controllers import BaseMPC
 
 from canvas.datasets import RegisteredDatasets
-from canvas.envs.env_new import Environment
-from canvas.conformal_predictors.scores_new import ActionDivergenceScoreFunction, PlanningRegretScoreFunction, PositionalDisplacementScoreFunction
+from canvas.envs.env import Environment
+from canvas.conformal_predictors.scores import ActionDivergenceScoreFunction, PlanningRegretScoreFunction, PositionalDisplacementScoreFunction
 from canvas.conformal_predictors.hindsight_scores import HindsightActionDivergenceScoreFunction, HindsightPlanningRegretScoreFunction, HindsightPositionalDisplacementScoreFunction
 from canvas.conformal_predictors.aci import DelayedACI
 from canvas.competency_indices.core import CompetencyIndex, HindsightCompetencyIndex
@@ -218,8 +218,6 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
                 fig.savefig(os.path.join('./viz_mpc_example', '{:03d}.pdf'.format(env.timestep)), bbox_inches='tight',
                             pad_inches=0)
                 plt.close()
-
-
 
             obs, terminated, truncated, simulation_info = env.step(u)
 

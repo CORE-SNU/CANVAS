@@ -8,7 +8,7 @@ from copy import deepcopy
 from canvas.controllers import KernelMPPI
 
 from canvas.datasets import RegisteredDatasets
-from canvas.envs.env_new import Environment
+from canvas.envs.env import Environment
 from canvas.conformal_predictors.scores import ActionDivergenceScoreFunction, PlanningRegretScoreFunction
 from canvas.conformal_predictors.aci import DelayedACI
 
@@ -82,9 +82,6 @@ def main(goal_x, goal_y, num_iter, dataset_name, predictor, predictor_base, visu
             dataset=dataset_name,
             device='cpu'
         )
-
-
-        # your controller goes here
 
         ROBOT_RAD = .4
         d_min = ROBOT_RAD + .1 / np.sqrt(2.)

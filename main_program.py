@@ -7,7 +7,7 @@ _DATA_DIR = os.path.dirname(__file__)
 sys.path.append(_DATA_DIR)
 from canvas.datasets import Dataset, get_dataset_spec, RegisteredDatasets
 from canvas.controllers.controller import controllers
-from canvas.envs.env_new import Environment
+from canvas.envs.env import Environment
 from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
 from simulation import Simulation
 

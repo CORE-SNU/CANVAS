@@ -1,3 +1,1 @@
-from .predictor_CI import Predictor_CI
-from .competency_index import CompetencyIndex
-from .score_function import ScoreFunction
+from canvas.competency_indices.core import CompetencyIndex, HindsightCompetencyIndex

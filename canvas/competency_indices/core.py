@@ -1,6 +1,6 @@
 from typing import List
 import numpy as np
-from canvas.conformal_predictors.scores_new import ScoreFunction
+from canvas.conformal_predictors.scores import ScoreFunction
 from canvas.conformal_predictors.hindsight_scores import HindsightScoreFunction
 from canvas.conformal_predictors.aci import DelayedACI
 
