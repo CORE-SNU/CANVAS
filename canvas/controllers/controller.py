@@ -23,7 +23,9 @@ class controllers:
             self.ControllerModel = ConformalController(n_steps=prediction_len, dt=dt)
         elif name in ("mpc", "basempc"):
             # Base MPC
-            self.ControllerModel = BaseMPC(prediction_horizon=prediction_len, dt=dt)
+            ROBOT_RAD = .4
+            d_min = ROBOT_RAD + .1 / np.sqrt(2.)
+            self.ControllerModel = BaseMPC(prediction_horizon=prediction_len, dt=dt, d_min=d_min)
         elif name in ("grid", "gridmpc"):
             # Grid-based MPC
             self.ControllerModel = GridMPC(n_steps=prediction_len, dt=dt)
