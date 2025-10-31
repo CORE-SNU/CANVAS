@@ -8,7 +8,7 @@ from copy import deepcopy
 from canvas.controllers import KernelMPPI
 
 from canvas.datasets import RegisteredDatasets
-from canvas.envs.env_new import Environment
+from canvas.envs.env import Environment
 from canvas.conformal_predictors.scores import ActionDivergenceScoreFunction, PlanningRegretScoreFunction
 from canvas.conformal_predictors.aci import DelayedACI
 

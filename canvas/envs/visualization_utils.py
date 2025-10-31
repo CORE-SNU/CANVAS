@@ -42,7 +42,6 @@ def draw_robot(
     ax.add_artist(AnnotationBbox(img_rotated, (pos_img_x, pos_img_y), frameon=False))
 
 
-
 def to_homogeneous_coordinates(pos):
     """
     [x, y] to [x: y: 1]
@@ -64,7 +63,6 @@ def to_image_frame(pos, H):
     pos_tf = np.linalg.solve(H, pos_h.T)     # array of shape (3, N) containing [x: y: z]'s
     pos_x_tf, pos_y_tf, pos_z_tf = pos_tf[0], pos_tf[1], pos_tf[2]      # [x: y: z] -> [x/z, y/z]
     return pos_x_tf / pos_z_tf, pos_y_tf / pos_z_tf
-
 
 
 def visualize_trajectory(trajectory, H, ax, c=None, **kwargs):
@@ -92,7 +90,6 @@ def add_arrow(x, y, x_next, y_next, H, ax, arrowprops):
     y, y_next = image_y
 
     ax.annotate(text='', xy=(x_next, y_next), xytext=(x, y), arrowprops=arrowprops)
-
 
 
 def visualize_point(point, H, ax, color, marker, s, label, zorder):

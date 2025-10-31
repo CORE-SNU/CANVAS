@@ -12,7 +12,7 @@ from canvas.datasets import RegisteredDatasets
 from canvas.envs.env import Environment
 from canvas.conformal_predictors.scores import ActionDivergenceScoreFunction, PlanningRegretScoreFunction, PositionalDisplacementScoreFunction
 from canvas.conformal_predictors.hindsight_scores import HindsightActionDivergenceScoreFunction, HindsightPlanningRegretScoreFunction, HindsightPositionalDisplacementScoreFunction
-from canvas.conformal_predictors.aci import DelayedACI
+from canvas.conformal_predictors import LinearQuantileTracker
 from canvas.competency_indices.core import CompetencyIndex, HindsightCompetencyIndex
 
 from canvas.predictors import Predictors
@@ -106,32 +106,17 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
 
         max_ratio = 100.
 
+        cp_params = {'target_miscoverage_level': .4, 'step_size': .05, 'delay': prediction_horizon, 'sample_size': 4}
+
         score_ftn_pd = PositionalDisplacementScoreFunction(prediction_len=prediction_horizon, step=6, clip=max_ratio)
-        conformal_predictor_pd = DelayedACI(
-            target_miscoverage_level=0.4,
-            step_size=0.05,
-            delay=prediction_horizon,
-            max_score=3.,
-            sample_size=5
-        )
+        conformal_predictor_pd = LinearQuantileTracker(**cp_params)
 
         score_ftn_ad = ActionDivergenceScoreFunction(prediction_len=prediction_horizon, clip=max_ratio)
-        conformal_predictor_ad = DelayedACI(
-            target_miscoverage_level=0.4,
-            step_size=0.05,
-            delay=prediction_horizon,
-            max_score=max_ratio,
-            sample_size=5
-        )
+        conformal_predictor_ad = LinearQuantileTracker(**cp_params)
+
 
         score_ftn_pr = PlanningRegretScoreFunction(prediction_len=prediction_horizon, clip=max_ratio)
-        conformal_predictor_pr = DelayedACI(
-            target_miscoverage_level=0.4,
-            step_size=0.05,
-            delay=prediction_horizon,
-            max_score=max_ratio,
-            sample_size=5
-        )
+        conformal_predictor_pr = LinearQuantileTracker(**cp_params)
 
         indices = CompetencyIndex(prefix_len=scenario_configs[dataset_name]['t_begin'], momentum=0.7)
         indices.register(score_ftn_pd, conformal_predictor_pd, name='PD')
@@ -163,12 +148,11 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
 
             indices.update(obs)
 
+            # ACI -> competency idx computation
             if frame >= prediction_horizon:
-                # ACI -> competency idx computation
                 indices.forward()
-
             else:
-                indices.pad(val=0.5)
+                indices.pad(0.5)
 
             mpc_base = deepcopy(mpc)
             u, controller_info = mpc(obs, prediction_res)
@@ -237,7 +221,7 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
 
         fig, ax = plt.subplots(figsize=(12, 7))
 
-        ax.set_xlim(0, frame)
+        ax.set_xlim(prediction_horizon, frame)
         ax.set_ylim(-0.01, 1.01)
         ax.grid(True)
 
@@ -263,7 +247,7 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
 
         fig, ax = plt.subplots(figsize=(12, 7))
 
-        ax.set_xlim(0, frame)
+        ax.set_xlim(prediction_horizon, frame)
         ax.grid(True)
 
         for name in ['PD', 'AD', 'PR']:

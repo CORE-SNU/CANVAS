@@ -1,7 +1,7 @@
 import numpy as np
 
 from canvas.datasets import RegisteredDatasets
-from canvas.envs.env_new import Environment
+from canvas.envs.env import Environment
 
 
 def test_env_visualization():

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from canvas.datasets import get_dataset_spec
 from canvas.datasets import RegisteredDatasets
 from canvas.controllers import GridMPC
-from canvas.envs.env_new import Environment
+from canvas.envs.env import Environment
 from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
 
 """
