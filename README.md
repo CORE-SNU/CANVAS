@@ -24,17 +24,16 @@ Below is a sample run code for the bare minimum imports required to call the pre
 
 ```python
 from canvas.datasets import Dataset, get_dataset_spec, RegisteredDatasets
-from canvas.controllers.controller import controllers
 from canvas.envs.env import Environment
-from canvas import AdaptiveConformalPredictionModule, Predictors, region_to_box
+from canvas import Predictors, region_to_box
 from simulation import Simulation
 
 # -----------------------------
 # Main
 # -----------------------------
 def main(dataset, predictor, controller, 
-         prediction_len, history_len, start_x, start_y, goal_x, goal_y, max_ped, t_begin, t_end,
-         num_iter, save_video, r_star, ci_mode):
+         prediction_len, history_len, start_x, start_y, goal_x, goal_y, t_begin, t_end,
+         num_iter, save_video, ci_mode):
     # Predictor horizon
     prediction_len = prediction_len
     history_len = history_len
@@ -53,38 +52,22 @@ def main(dataset, predictor, controller,
             t_end=t_end,
             history_len=history_len,
             prediction_horizon=prediction_len,
-            path_to_frames='/home/core/Documents/CANVAS/canvas/assets/final/frames',
+            path_to_frames='~/CANVAS/assets/frames',
             path_to_save='./viz_example'
-        )
-    # Simulation period
-    dt = env.dt 
-    # Choose predictor
-    obj_predictor = Predictors(chosen_predictor=predictor,prediction_len=prediction_len,history_len=history_len,dt=dt,dataset=dataset,device='cpu')
-    # CP module setting (use ACP)
-    max_interval_lengths = 0.3 * dt * np.arange(1, prediction_len + 1) # Maximum interval length setting
-    offline_calibration_set = {i: [] for i in range(prediction_len)}
-    cp_module = AdaptiveConformalPredictionModule(target_miscoverage_level=0.2,
-                                                  step_size=0.05,
-                                                  n_scores=prediction_len,
-                                                  max_interval_lengths=max_interval_lengths,
-                                                  sample_size=20,
-                                                  offline_calibration_set=offline_calibration_set)
-    # Choose controller for control test
-    controller = controllers(chosen_controller=controller,prediction_len=prediction_len,dt=dt)
+        ) 
     # Control test simulation setting
     sim = Simulation(environment=env, 
-                     predictor=obj_predictor,
+                     predictor=predictor,
                      controller=controller,
-                     cp_module=cp_module,
                      goal=goal,
-                     max_pedestrian=max_ped,
                      persistent_static_boxes=persistent_static_boxes,
                      dataset=dataset_obj,
                      prediction_len=prediction_len,
                      history_len=history_len,
-                     dt=dt,
+                     dt=env.dt,
+                     t_begin=t_begin,
+                     t_end=t_end,
                      save_video=save_video,
-                     r_star=r_star,
                      ci_mode=ci_mode
                     )
     
@@ -107,7 +90,6 @@ You can run the simulation with "main_program.py" with some dedicated variables
     * SNU-ASRI datasets: `snu-asri`, `snu-asri-ood`
 * --predictor : Select the predictor (default : traj)
     * **Linear predictor** `linear`
-    * **Gaussian Process predictor** `gp`
     * **[EigenTrajectory][eigentraj-link]** `eigen`
     * **[Trajectron++][trajectronpp-link]** `traj`
     * **[Social-STGCNN][socialstgcnn-link]** `socialstgcnn`
@@ -118,12 +100,12 @@ You can run the simulation with "main_program.py" with some dedicated variables
     * **Sampling-base MPC** `sampling`
     * **Conformal Prediction MPC** `conformal`
     * **Egocentric Conformal Prediction MPC** `ecp_mpc`
+    * **MPPI** `mppi`
 * --prediction_len : Length of the predicted trajectory (default : 12, unit : frame)
 * --history_len : Length of the ground truth trajectory (default : 8)
 * --t_begin : Start time of the dataset (default : 40)
 * --t_end : End time of the data (default: 2000)
 * --save_video : Save the result to video (default : True)
-* --max_ped : Maximum number of pedestrians to consider for control problem, and the other pedestrians that exceed the 'max_ped' will be ignored (default : 4)  
 
 
 

@@ -23,13 +23,12 @@ Simulation pipeline (per frame):
 - CP (adaptive conformal) is updated ONCE per frame using current observations & predictions
 """
 class Simulation():
-    def __init__(self, environment, predictor, controller, goal, max_pedestrian, persistent_static_boxes, dataset, 
-                 prediction_len, history_len, dt, t_begin, t_end, save_video=True, ci_mode: str="act", verbose: bool=True, **kwargs):
+    def __init__(self, environment, predictor, controller, goal, persistent_static_boxes, dataset, 
+                 prediction_len, history_len, dt, t_begin, t_end, save_video=True, ci_mode: str="act", **kwargs):
         self.env = environment
         self.predictor = predictor
-        self.controller = controllers(chosen_controller=controller, prediction_len=prediction_len, dt=dt)
+        self.controller = controllers(chosen_controller=controller, prediction_len=prediction_len, dt=dt, goal=goal)
         self.goal = goal
-        self.max_ped = max_pedestrian
         self.persistent_static_boxes = persistent_static_boxes
         self.dataset_obj = dataset
         self.dataset_name = dataset.name
@@ -41,7 +40,6 @@ class Simulation():
         self.save_video = save_video
         # CI machinery
         self.ci_mode = ci_mode # 'pos'(PD) | 'act'(AD) | 'reg'(PR)
-        self.verbose = bool(verbose)
         # ci buffer
         self._ci_series = []
         self._ci_sum = 0.0      
