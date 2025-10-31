@@ -8,8 +8,8 @@ from copy import deepcopy
 from canvas.controllers import BaseMPC
 
 from canvas.datasets import RegisteredDatasets
-from canvas.envs.env_new import Environment
-from canvas.conformal_predictors.scores_new import ActionDivergenceScoreFunction, PlanningRegretScoreFunction, PositionalDisplacementScoreFunction
+from canvas.envs.env import Environment
+from canvas.conformal_predictors.scores import ActionDivergenceScoreFunction, PlanningRegretScoreFunction, PositionalDisplacementScoreFunction
 from canvas.conformal_predictors.aci import DelayedACI
 from canvas.competency_indices.core import CompetencyIndex
 
