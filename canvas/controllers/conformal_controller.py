@@ -14,13 +14,13 @@ class ConformalController:
         # assert .0 <= risk_level and risk_level <= 1.        # epsilon in [0, 1]
         self._epsilon = risk_level
 
-    def __call__(self, pos_x, pos_y, orientation_z, linear_x, angular_z, boxes, predictions, goal,history, **__):
-        paths, vels = self.generate_paths(pos_x, pos_y, orientation_z, n_skip=4)
+    def __call__(self, position_x, position_y, orientation_z, boxes, predictions, goal,history, **__):
+        paths, vels = self.generate_paths(position_x, position_y, orientation_z, n_skip=4)
         # paths, vels = self.generate_paths_wheel_vel(pos_x, pos_y, orientation_z, linear_x, angular_z)
         safe_paths, vels = self.filter_unsafe_paths(paths, vels, boxes)
         if safe_paths is None:
             # print('MPC infeasible')
-            self.update_conformal_var(pos_x, pos_y, history)
+            self.update_conformal_var(position_x, position_y, history)
             return None, {'feasible': False},0, 0, 0, 0, 0
         else:
             path, vel, minimum, intermediate, control, terminal, minimal = self.score_paths(safe_paths, vels,predictions, goal)
@@ -31,7 +31,7 @@ class ConformalController:
                 'safe_paths': safe_paths,
                 'final_path': path
             }
-            self.update_conformal_var(pos_x, pos_y, history)
+            self.update_conformal_var(position_x, position_y, history)
             return vel[3:13], info, minimum, intermediate, control, terminal, minimal
 
     def score_paths(self, paths, vels, predictions, goal):

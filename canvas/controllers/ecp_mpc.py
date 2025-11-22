@@ -122,7 +122,7 @@ class EgocentricCPMPC:
         self._prediction_queue = []  # prediction results
         self._track_queue = []  # true configuration of dynamic obstacles
 
-    def __call__(self, pos_x, pos_y, orientation_z, boxes, predictions, goal,history,**__):
+    def __call__(self, position_x, position_y, orientation_z, boxes, predictions, goal,history,**__):
         # Warning! The method can be invoked only when t >= N
         # Thus, the controller has to wait until at least N observations are collected.
 
@@ -131,7 +131,7 @@ class EgocentricCPMPC:
         self.update_observations(obs=history)
 
         # span a discrete search space (x^J_{...|t}: J in scr{J})
-        paths, vels = self.generate_paths(pos_x, pos_y, orientation_z, n_skip=self.n_skip)
+        paths, vels = self.generate_paths(position_x, position_y, orientation_z, n_skip=self.n_skip)
 
         self.path_history.append(paths)
 
