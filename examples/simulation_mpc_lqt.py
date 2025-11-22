@@ -1,4 +1,5 @@
 import argparse
+import scipy
 import numpy as np
 import os
 import matplotlib
@@ -13,7 +14,7 @@ from canvas.envs.env import Environment
 from canvas.conformal_predictors.scores import ActionDivergenceScoreFunction, PlanningRegretScoreFunction, PositionalDisplacementScoreFunction
 from canvas.conformal_predictors.hindsight_scores import HindsightActionDivergenceScoreFunction, HindsightPlanningRegretScoreFunction, HindsightPositionalDisplacementScoreFunction
 from canvas.conformal_predictors import LinearQuantileTracker
-from canvas.competency_indices.core import CompetencyIndex, HindsightCompetencyIndex
+from canvas.competency_indices.core import ConformalizedCompetencyIndex, HindsightCompetencyIndex
 
 from canvas.predictors import Predictors
 
@@ -50,11 +51,12 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         'hotel': {'init_robot_state': state_dict_from_vec(np.array([-1.5, 0., -np.pi / 2])), 'goal_pos': np.array([2., -6.]), 't_begin': 78, 't_end': 200},
         'eth': {'init_robot_state': state_dict_from_vec(np.array([5., 1.0, np.pi / 2.])), 'goal_pos': np.array([3., 10.]), 't_begin': 1, 't_end': 100},
         'univ': {'init_robot_state': state_dict_from_vec(np.array([3.5, 2., np.pi / 4.])), 'goal_pos': np.array([11.5, 8.5]), 't_begin': 1, 't_end': 300},
+        'snu-asri': {'init_robot_state': state_dict_from_vec(np.array([0., 0., 0.])), 'goal_pos': np.array([6., -5.]), 't_begin': 100, 't_end': 250}
 
     }
 
     # Predictor horizon
-    prediction_horizon = 8
+    prediction_horizon = 16
     history_len = 8
 
     env = Environment(
@@ -64,7 +66,7 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         prediction_horizon=prediction_horizon,
         path_to_frames='/media/sju5379/F6340D35340CF9FF/euped_assets/frames',
         # directory from which the parsed frames are loaded
-        path_to_save='./viz_mpc_example'  # directory to save the visualization result
+        path_to_save='./viz_mpc_{}'.format(dataset_name)  # directory to save the visualization result
     )
 
     # -----------------------------
@@ -73,8 +75,6 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
     # TODO: add a logger to manage these
 
     for _ in range(num_iter):
-        print("==================================")
-        print("SIMULATION PIPELINE Started")
 
         # your predictor goes here
         prediction_model = Predictors(
@@ -100,13 +100,13 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         ROBOT_RAD = .4
         d_min = ROBOT_RAD + .1 / np.sqrt(2.)
 
-        mpc = BaseMPC(prediction_horizon=prediction_horizon, dt=env.dt, goal=env.goal, d_min=d_min)
+        mpc = BaseMPC(prediction_horizon=prediction_horizon, dt=env.dt, goal=env.goal, d_min=d_min, geometry=env.geometry, use_ipopt=False)
 
         # ---- CP module (updated once per frame) ----
 
         max_ratio = 100.
 
-        cp_params = {'target_miscoverage_level': .4, 'step_size': .05, 'delay': prediction_horizon, 'sample_size': 4}
+        cp_params = {'target_miscoverage_level': .4, 'step_size': .02, 'delay': prediction_horizon, 'sample_size': 6}
 
         score_ftn_pd = PositionalDisplacementScoreFunction(prediction_len=prediction_horizon, step=6, clip=max_ratio)
         conformal_predictor_pd = LinearQuantileTracker(**cp_params)
@@ -118,7 +118,7 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         score_ftn_pr = PlanningRegretScoreFunction(prediction_len=prediction_horizon, clip=max_ratio)
         conformal_predictor_pr = LinearQuantileTracker(**cp_params)
 
-        indices = CompetencyIndex(prefix_len=scenario_configs[dataset_name]['t_begin'], momentum=0.7)
+        indices = ConformalizedCompetencyIndex(prefix_len=env.t_begin, momentum=0.7)
         indices.register(score_ftn_pd, conformal_predictor_pd, name='PD')
         indices.register(score_ftn_ad, conformal_predictor_ad, name='AD')
         indices.register(score_ftn_pr, conformal_predictor_pr, name='PR')
@@ -140,6 +140,7 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         frame = 0
 
         while not truncated:
+            print('[frame {}]'.format(env.timestep), end='')
             # simulation loop
             # --------- Predictor (once per frame) ---------
 
@@ -194,17 +195,16 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
             X_base = controller_info2['X'][:, :2]
 
             if visualize:
-                c = h_indices.get_history(name='AD')
+                c = indices.get_history(name='PR')
+                hc = h_indices.get_history(name='PR')
                 # TODO: manage by dictionary, or define a class registering extra trajectories to an existing fig
-                fig, ax = env.render(c=c, open_loop=X, open_loop_gt=X_gt, open_loop_base=X_base)
-                ax.legend()
-                fig.savefig(os.path.join('./viz_mpc_example', '{:03d}.pdf'.format(env.timestep)), bbox_inches='tight',
+                fig, ax = env.render(c=c, hc=hc, open_loop=X, open_loop_gt=X_gt, open_loop_base=X_base)
+                fig.tight_layout()
+                fig.savefig(os.path.join('./viz_mpc_{}'.format(dataset_name), '{:03d}.pdf'.format(env.timestep)), bbox_inches='tight',
                             pad_inches=0)
                 plt.close()
 
             obs, terminated, truncated, simulation_info = env.step(u)
-
-
 
             # --------- Goal check ---------
             if terminated:
@@ -221,7 +221,7 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
 
         fig, ax = plt.subplots(figsize=(12, 7))
 
-        ax.set_xlim(prediction_horizon, frame)
+        ax.set_xlim(env.t_begin+prediction_horizon, env.t_begin+frame)
         ax.set_ylim(-0.01, 1.01)
         ax.grid(True)
 
@@ -230,16 +230,18 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
             'AD': '#8f00ff',
             'PR': '#808000'
         }
-        for name in ['PD', 'AD', 'PR']:
+        for name in ['PD', 'PR']:
             c = indices.get_history(name=name)
             hc = h_indices.get_history(name=name)
-            ax.plot(c, label=name, linewidth=4, color=colors[name])
+
+            ax.plot(c, label='predicted', linewidth=4, color=colors[name])
             # ax.fill_between(x=np.arange(frame), y1=c, y2=1., color=colors[name], alpha=0.2)
-            ax.plot(hc, label='{} (hindsight)'.format(name), linewidth=4, color=colors[name], linestyle='dashed', alpha=0.4)
+            ax.plot(np.arange(env.t_begin, env.t_begin+hc.shape[0]), hc, label='hindsight', linewidth=4, color=colors[name], linestyle='dashed', alpha=0.4)
         ax.tick_params(axis='both', labelsize=14)
         ax.set_xlabel(r'$t$', fontsize=20)
         ax.set_ylabel('competency index', fontsize=20)
-        ax.legend(fontsize=20, ncols=3, loc='lower left', bbox_to_anchor=(0, 1., 1., 0.2), mode='expand')
+        # ax.legend(fontsize=20, ncols=3, loc='lower left', bbox_to_anchor=(0, 1., 1., 0.2), mode='expand')
+        ax.legend(fontsize=20)
         fig.tight_layout()
         fig.savefig('indices.pdf')
 
@@ -250,12 +252,12 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         ax.set_xlim(prediction_horizon, frame)
         ax.grid(True)
 
-        for name in ['PD', 'AD', 'PR']:
+        for name in ['PD', ]:
             # c = indices.get_history(name=name)
             hc = h_indices.get_score_history(name=name)
             # ax.plot(c, label=name, linewidth=4, color=colors[name])
             # ax.fill_between(x=np.arange(len(c)), y1=c, y2=1., color=colors[name], alpha=0.2)
-            ax.plot(hc, label='{} (hindsight)'.format(name), linewidth=4, color=colors[name], linestyle='dashed', alpha=0.4)
+            ax.plot(hc, label='predicted', linewidth=4, color=colors[name], linestyle='dashed', alpha=0.4)
         ax.tick_params(axis='both', labelsize=14)
         ax.set_xlabel(r'$t$', fontsize=20)
         ax.set_ylabel('competency index', fontsize=20)

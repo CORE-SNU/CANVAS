@@ -1,0 +1,14 @@
+{
+    "left building": {
+        "xmin": -0.5,
+        "xmax": 9.8,
+        "ymin": 8.8,
+        "ymax": 15.0
+    },
+    "right upper car": {
+        "xmin": 9.8,
+        "xmax": 12.3,
+        "ymin": 7.1,
+        "ymax": 15.0
+    }
+}

@@ -1,1 +1,1 @@
-from canvas.competency_indices.core import CompetencyIndex, HindsightCompetencyIndex
+from canvas.competency_indices.core import ConformalizedCompetencyIndex, HindsightCompetencyIndex

@@ -1,0 +1,26 @@
+{
+    "left road": {
+        "xmin": -10.0,
+        "xmax": -5.2,
+        "ymin": -7.0,
+        "ymax": 18.0
+    },
+    "lower ground": {
+        "xmin": 0.0,
+        "xmax": 13.0,
+        "ymin": -7.0,
+        "ymax": -1.0
+    },
+    "upper ground": {
+        "xmin": -1.5,
+        "xmax": 13.0,
+        "ymin": 13.0,
+        "ymax": 18.0
+    },
+    "right building": {
+        "xmin": 13.0,
+        "xmax": 20.0,
+        "ymin": -7.0,
+        "ymax": 18.0
+    }
+}

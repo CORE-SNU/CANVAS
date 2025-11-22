@@ -1,0 +1,38 @@
+{
+    "left road": {
+        "xmin": -3.0,
+        "xmax": -0.8,
+        "ymin": -11.0,
+        "ymax": 5.0
+    },
+    "left bench": {
+        "xmin": 0.9,
+        "xmax": 1.7,
+        "ymin": -11.0,
+        "ymax": -8.5
+    },
+    "left tree": {
+        "xmin": 1.2,
+        "xmax": 1.8,
+        "ymin": -6.3,
+        "ymax": -5.7
+    },
+    "light": {
+        "xmin": 1.2,
+        "xmax": 1.8,
+        "ymin": -2.3,
+        "ymax": -1.7
+    },
+    "right tree": {
+        "xmin": 1.2,
+        "xmax": 1.8,
+        "ymin": 1.7,
+        "ymax": 2.3
+    },
+    "right building": {
+        "xmin": 4.2,
+        "xmax": 7.0,
+        "ymin": -11.0,
+        "ymax": 5.0
+    }
+}

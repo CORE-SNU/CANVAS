@@ -1,0 +1,66 @@
+{
+    "xlim": [-3.0, 8.5],
+    "ylim": [-9.5, 1.5],
+    "obstacles": {
+        "glass door below": {
+            "xmin": 0.3,
+            "xmax": 5.0,
+            "ymin": -12.0,
+            "ymax": -6.3
+        },
+        "left glass": {
+            "xmin": -7.0,
+            "xmax": 0.3,
+            "ymin": -12.0,
+            "ymax": -8.5
+        },
+        "right glass": {
+            "xmin": 5.0,
+            "xmax": 13.0,
+            "ymin": -12.0,
+            "ymax": -8.5
+        },
+        "left wall": {
+            "xmin": -7.0,
+            "xmax": -2.1,
+            "ymin": -12.0,
+            "ymax": -0.3
+        },
+        "right wall": {
+            "xmin": 7.8,
+            "xmax": 13.0,
+            "ymin": -12.0,
+            "ymax": -0.3
+        },
+        "upper-left wall": {
+            "xmin": -7.0,
+            "xmax": -1.9,
+            "ymin": 0.9,
+            "ymax": 5.0
+        },
+        "upper wall": {
+            "xmin": -0.5,
+            "xmax": 13.0,
+            "ymin": 0.9,
+            "ymax": 5.0
+        },
+        "middle square": {
+            "xmin": 2.0,
+            "xmax": 3.4,
+            "ymin": -4.6,
+            "ymax": -1.8
+        },
+        "left cylinder": {
+            "xmin": -0.8,
+            "xmax": 0.2,
+            "ymin": -1.5,
+            "ymax": -0.7
+        },
+        "right cylinder": {
+            "xmin": 5.3,
+            "xmax": 6.3,
+            "ymin": -1.5,
+            "ymax": -0.7
+        }
+    }
+}

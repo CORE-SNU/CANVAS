@@ -8,6 +8,8 @@ from PIL import Image
 import warnings
 from matplotlib.collections import LineCollection
 
+from canvas.envs.env_utils import Rectangle
+
 def draw_robot(
         ax,
         H,
@@ -172,6 +174,16 @@ def visualize_points(points, H, ax, color, label, alpha=1.0, s=10):
     xs, ys = to_image_frame(points, H)
     ax.scatter(xs, ys, color=color, alpha=alpha, s=s, label=label)
 
+
+def project_rectangle_to_image(rectangle: Rectangle, H, color, alpha=1., zorder=0):
+    # polygonal approximation of the projected conic
+    vertices = rectangle.to_vertices()
+
+    vertices_x, vertices_y = to_image_frame(vertices, H)
+
+    quadrilateral = Polygon(xy=np.stack((vertices_x, vertices_y), axis=1),
+                   closed=True, ec=color, fc=color, alpha=alpha, zorder=zorder)
+    return quadrilateral
 
 
 

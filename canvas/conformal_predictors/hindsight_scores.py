@@ -33,6 +33,7 @@ class HindsightPositionalDisplacementScoreFunction(HindsightScoreFunction):
         for key, p in prediction.items():
             if key in future:
                 g = future[key]
+
                 d = np.sum((p[i] - g[i]) ** 2) ** .5 if g.shape[0] > i else 0.
                 d_max = max(d, d_max)
 
@@ -40,6 +41,7 @@ class HindsightPositionalDisplacementScoreFunction(HindsightScoreFunction):
         for key, p in prediction_base.items():
             if key in future:
                 g = future[key]
+
                 d = np.sum((p[i] - g[i]) ** 2) ** .5 if g.shape[0] > i else 0.
                 d_max_base = max(d, d_max_base)
 
@@ -88,6 +90,8 @@ class HindsightPlanningRegretScoreFunction(HindsightScoreFunction):
 
         pr = cost - cost_gt
         pr_base = cost_base - cost_gt
+
+        print('cost: {} / cost (base): {} / cost (gt): {}'.format(cost, cost_base, cost_gt))
 
         return pr, pr_base
 

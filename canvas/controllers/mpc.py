@@ -1,14 +1,17 @@
 import numpy as np
 from itertools import product
+from canvas.envs.env_utils import Geometry
+from canvas.controllers.optim_solver import solve
 
 
 class BaseMPC:
-    def __init__(self, prediction_horizon, dt, goal, d_min):
+    def __init__(self, prediction_horizon, dt, goal, d_min, geometry: Geometry, use_ipopt: bool = False):
         self._n_steps = prediction_horizon
         self._dt = dt
         self._goal = goal
         self._d_min = d_min
-
+        self._geom: Geometry = geometry
+        self.use_ipopt = use_ipopt
 
     def __call__(self, obs, prediction_res, change_controller_state=False):
         o = obs['ego']
@@ -16,11 +19,29 @@ class BaseMPC:
         Xs, Us = self.generate_paths(x, y, th, n_skip=4)        # shape of Xs: (# samples, prediction horizon + 1, dim.)
 
         X, U, min_cost_to_go = self.score_paths(Xs, Us, prediction_res)
+
+        if self.use_ipopt:
+            # IPOPT-based path refinement
+            X, U = solve(
+                ts=self._n_steps+1,
+                dt=self._dt,
+                ulb=np.array([-.8, -.7]),
+                uub=np.array([.8, .7]),
+                geometry=self._geom,
+                predictions=prediction_res,
+                r_robot=.4,
+                r_agent=.1 / np.sqrt(2.),
+                initial_pose=np.array([x, y, th]),
+                goal=self._goal,
+                X=X,
+                U=U
+            )
+        min_cost_to_go = self.cost_to_go(obs, prediction_res, U_refined)
+
         info = {
             'X': X,
             'U': U,
-            'cost_to_go': min_cost_to_go,
-
+            'cost_to_go': min_cost_to_go
         }
         return U[0], info
 
@@ -34,7 +55,9 @@ class BaseMPC:
         if prediction_res:
             for i in range(self._n_steps):
                        # shape: (# agents, # samples) -> (# samples,)
-                d = np.min([np.sum((Xs[:, i + 1, :2] - p[i]) ** 2, axis=-1) ** .5 if p.shape[0] > i else 1e5 * np.ones_like(terminal_cost) for p in prediction_res.values()], axis=0)
+                d_static = self._geom.distance_from(points=Xs[:, i + 1, :2])
+                d_dynamic = np.min([np.sum((Xs[:, i + 1, :2] - p[i]) ** 2, axis=-1) ** .5 if p.shape[0] > i else 1e5 * np.ones_like(terminal_cost) for p in prediction_res.values()], axis=0)
+                d = np.minimum(d_static, d_dynamic)
                 collision_cost += weight * np.where(d <= self._d_min, 1., 0.)
 
         c = intermediate_cost + terminal_cost + collision_cost
@@ -73,7 +96,6 @@ class BaseMPC:
                 d = min([np.sum((X[i+1, :2] - p[i]) ** 2) ** .5 if p.shape[0] > i else 1e5 for p in prediction_res.values()])
                 collision_cost += weight * (d <= self._d_min)
         return intermediate_cost + terminal_cost + collision_cost
-
 
     @staticmethod
     def filter_unsafe_paths(paths, vels, boxes, predictions, confidence_intervals):
@@ -192,8 +214,8 @@ class BaseMPC:
 
         x = np.reshape(x, (-1, self._n_steps+1))
         y = np.reshape(y, (-1, self._n_steps+1))
-        # th = np.reshape(th, (-1, self._n_steps))
+        th = np.reshape(th, (-1, self._n_steps+1))
         v = np.reshape(v, (-1, self._n_steps))
         w = np.reshape(w, (-1, self._n_steps))
 
-        return np.stack((x, y), axis=-1), np.stack((v, w), axis=-1)
+        return np.stack((x, y, th), axis=-1), np.stack((v, w), axis=-1)
