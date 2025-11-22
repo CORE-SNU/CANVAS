@@ -13,7 +13,7 @@ from canvas.envs.env import Environment
 from canvas.conformal_predictors.scores import ActionDivergenceScoreFunction, PlanningRegretScoreFunction, PositionalDisplacementScoreFunction
 from canvas.conformal_predictors.hindsight_scores import HindsightActionDivergenceScoreFunction, HindsightPlanningRegretScoreFunction, HindsightPositionalDisplacementScoreFunction
 from canvas.conformal_predictors.aci import DelayedACI
-from canvas.competency_indices.core import CompetencyIndex, HindsightCompetencyIndex
+from canvas.competency_indices.core import ConformalizedCompetencyIndex, HindsightCompetencyIndex
 
 from canvas.predictors import Predictors
 
@@ -133,7 +133,7 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
             sample_size=5
         )
 
-        indices = CompetencyIndex(prefix_len=scenario_configs[dataset_name]['t_begin'], momentum=0.7)
+        indices = ConformalizedCompetencyIndex(prefix_len=scenario_configs[dataset_name]['t_begin'], momentum=0.7)
         indices.register(score_ftn_pd, conformal_predictor_pd, name='PD')
         indices.register(score_ftn_ad, conformal_predictor_ad, name='AD')
         indices.register(score_ftn_pr, conformal_predictor_pr, name='PR')
