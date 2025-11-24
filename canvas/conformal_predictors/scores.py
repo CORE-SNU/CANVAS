@@ -46,6 +46,10 @@ class ScoreFunction:
         o_t = {key: val[-1] for key, val in o.items()}
         self._buffer.update(o=o_t)
 
+    @property
+    def delay(self):
+        return self._prediction_len
+
 
 class PositionalDisplacementScoreFunction(ScoreFunction):
     def __init__(self, prediction_len, step, clip: float = math.inf):

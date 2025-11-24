@@ -36,7 +36,7 @@ class BaseMPC:
                 X=X,
                 U=U
             )
-        min_cost_to_go = self.cost_to_go(obs, prediction_res, U_refined)
+            min_cost_to_go = self.cost_to_go(obs, prediction_res, U)
 
         info = {
             'X': X,

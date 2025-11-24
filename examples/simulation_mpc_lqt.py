@@ -14,7 +14,8 @@ from canvas.envs.env import Environment
 from canvas.conformal_predictors.scores import ActionDivergenceScoreFunction, PlanningRegretScoreFunction, PositionalDisplacementScoreFunction
 from canvas.conformal_predictors.hindsight_scores import HindsightActionDivergenceScoreFunction, HindsightPlanningRegretScoreFunction, HindsightPositionalDisplacementScoreFunction
 from canvas.conformal_predictors import LinearQuantileTracker
-from canvas.competency_indices.core import ConformalizedCompetencyIndex, HindsightCompetencyIndex
+from canvas.competency_indices.core import ConformalizedCompetencyIndex, HindsightCompetencyIndex, \
+    MovingAverageCompetencyIndex
 
 from canvas.predictors import Predictors
 
@@ -106,7 +107,7 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
 
         max_ratio = 100.
 
-        cp_params = {'target_miscoverage_level': .4, 'step_size': .02, 'delay': prediction_horizon, 'sample_size': 6}
+        cp_params = {'target_miscoverage_level': .4, 'step_size': .02, 'delay': prediction_horizon, 'sample_size': 3}
 
         score_ftn_pd = PositionalDisplacementScoreFunction(prediction_len=prediction_horizon, step=6, clip=max_ratio)
         conformal_predictor_pd = LinearQuantileTracker(**cp_params)
@@ -122,6 +123,11 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         indices.register(score_ftn_pd, conformal_predictor_pd, name='PD')
         indices.register(score_ftn_ad, conformal_predictor_ad, name='AD')
         indices.register(score_ftn_pr, conformal_predictor_pr, name='PR')
+
+        m_indices = MovingAverageCompetencyIndex(prefix_len=env.t_begin, window=3)
+        m_indices.register(score_ftn_pd, name='PD')
+        m_indices.register(score_ftn_ad, name='AD')
+        m_indices.register(score_ftn_pr, name='PR')
 
         # hindsight competency indices (for comparative evaluation)
 
@@ -148,12 +154,14 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
             prediction_res_base = prediction_model_baseline(obs['non-ego'])
 
             indices.update(obs)
-
+            m_indices.update(obs)
             # ACI -> competency idx computation
             if frame >= prediction_horizon:
                 indices.forward()
+                m_indices.forward()
             else:
                 indices.pad(0.5)
+                m_indices.pad(0.5)
 
             mpc_base = deepcopy(mpc)
             u, controller_info = mpc(obs, prediction_res)
@@ -177,6 +185,20 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
             )
 
             indices.save_snapshot(
+                {
+                    'obs': obs,
+                    'controller': deepcopy(mpc),
+                    'action': u,
+                    'action_base': u2,
+                    'U': controller_info['U'],
+                    'U_base': controller_info2['U'],
+                    'prediction': prediction_res,
+                    'prediction_base': prediction_res_base,
+                    'context': {}
+                }
+            )
+
+            m_indices.save_snapshot(
                 {
                     'obs': obs,
                     'controller': deepcopy(mpc),
@@ -219,9 +241,10 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         print('avg. h-competency index:', h_indices.get_average_values())
         print('max. score:', h_indices.get_max_scores())
 
-        fig, ax = plt.subplots(figsize=(12, 7))
+        fig, ax = plt.subplots(figsize=(15, 5))
 
-        ax.set_xlim(env.t_begin+prediction_horizon, env.t_begin+frame)
+        t0 = env.t_begin
+        ax.set_xlim(t0, env.t_begin+frame)
         ax.set_ylim(-0.01, 1.01)
         ax.grid(True)
 
@@ -234,14 +257,16 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
             c = indices.get_history(name=name)
             hc = h_indices.get_history(name=name)
 
-            ax.plot(c, label='predicted', linewidth=4, color=colors[name])
+
+
+            ax.plot(c, label=f'predicted {name}', linewidth=4, color=colors[name])
             # ax.fill_between(x=np.arange(frame), y1=c, y2=1., color=colors[name], alpha=0.2)
-            ax.plot(np.arange(env.t_begin, env.t_begin+hc.shape[0]), hc, label='hindsight', linewidth=4, color=colors[name], linestyle='dashed', alpha=0.4)
+            ax.plot(np.arange(env.t_begin, env.t_begin+hc.shape[0]), hc, label=f'hindsight {name}', linewidth=4, color=colors[name], linestyle='dashed', alpha=0.4)
         ax.tick_params(axis='both', labelsize=14)
         ax.set_xlabel(r'$t$', fontsize=20)
         ax.set_ylabel('competency index', fontsize=20)
         # ax.legend(fontsize=20, ncols=3, loc='lower left', bbox_to_anchor=(0, 1., 1., 0.2), mode='expand')
-        ax.legend(fontsize=20)
+        ax.legend(fontsize=20, ncols=4)
         fig.tight_layout()
         fig.savefig('indices.pdf')
 
@@ -264,6 +289,42 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         ax.legend(fontsize=20, ncols=3, loc='lower left', bbox_to_anchor=(0, 1., 1., 0.2), mode='expand')
         fig.tight_layout()
         fig.savefig('scores.pdf')
+
+        fig, ax = plt.subplots(figsize=(12, 7))
+
+        # ax.set_xlim(t0, env.t_begin + frame)
+        # ax.set_ylim(-0.01, 1.01)
+        ax.set_ylim(0.)
+        ax.grid(True)
+
+        colors = {
+            'PD': '#008080',
+            'AD': '#8f00ff',
+            'PR': '#808000'
+        }
+        for name in ['PD', 'PR']:
+            c = indices.get_coverage(name=name)
+            mc = m_indices.get_coverage(name=name)
+            c_avg = 1. - np.cumsum(c) / np.arange(1, len(c) + 1)
+            mc_avg = 1. - np.cumsum(mc) / np.arange(1, len(mc) + 1)
+            ax.set_xlim(0., len(c)-1)
+            ax.plot(c_avg, label=f'{name} (conformalized)', linewidth=4, color=colors[name])
+            ax.plot(mc_avg, label=f'{name} (moving avg.)', linewidth=4, color=colors[name], linestyle='dotted')
+            # ax.fill_between(x=np.arange(frame), y1=c, y2=1., color=colors[name], alpha=0.2)
+            # ax.plot(np.arange(env.t_begin, env.t_begin + hc.shape[0]), hc, label='hindsight', linewidth=4,
+            #         color=colors[name], linestyle='dashed', alpha=0.4)
+
+        ax.axhline(y=.4, linestyle='--', linewidth=2, color='k')
+        ax.annotate(text=r'$1-\alpha$', xy=(8., .4), xytext=(10., .35), fontsize=20)
+        ax.tick_params(axis='both', labelsize=14)
+        ax.set_xlabel('CP step', fontsize=20)
+        ax.set_ylabel('avg. miscoverage', fontsize=20)
+        # ax.legend(fontsize=20, ncols=3, loc='lower left', bbox_to_anchor=(0, 1., 1., 0.2), mode='expand')
+        ax.legend(fontsize=20)
+        fig.tight_layout()
+        fig.savefig('coverage.pdf')
+
+        plt.close()
 
     return
 

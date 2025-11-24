@@ -23,6 +23,7 @@ class MovingAverageCompetencyIndex:
         self._indices = {}      # for storing the competency indices across time
         self._scores = {}
         self._averages = {}
+        self._covered = {}
         self._step = 0
 
     def register(self, score_func: ScoreFunction, name: str):
@@ -31,6 +32,7 @@ class MovingAverageCompetencyIndex:
         self._names.append(name)
         self._indices[name] = self.prefix_len * [.5]
         self._scores[name] = []
+        self._covered[name] = []
         self._averages[name] = None
 
     def update(self, obs):
@@ -54,9 +56,11 @@ class MovingAverageCompetencyIndex:
             else:
                 val = get_average(x=self._scores[name], window=self._window)
             self._averages[name] = val
+            covered = 1. / (1. + s) > self._indices[name][-score.delay]
             idx = 1. / (1. + val)
             res[name] = idx
             self._indices[name].append(idx)
+            self._covered[name].append(covered)
         self._step += 1
         return res
 
@@ -67,6 +71,9 @@ class MovingAverageCompetencyIndex:
 
     def get_history(self, name: str) -> np.ndarray:
         return np.array(self._indices[name])
+
+    def get_coverage(self, name: str) -> np.ndarray:
+        return np.array(self._covered[name])
 
     def get_average_values(self):
         return {name: np.mean(self._indices[name]) for name in self._names}
@@ -135,6 +142,9 @@ class ConformalizedCompetencyIndex:
         self._step += 1
     def get_history(self, name: str) -> np.ndarray:
         return np.array(self._indices[name])
+
+    def get_coverage(self, name: str) -> np.ndarray:
+        return np.array(self._covered[name])
 
     def get_average_values(self):
         return {name: np.mean(self._indices[name]) for name in self._names}

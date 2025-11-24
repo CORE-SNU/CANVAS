@@ -232,14 +232,14 @@ class Environment:
         ax.axis('off')
 
         H = self._H
-
+        '''
         for obstacle in self.geometry:
             projected = project_rectangle_to_image(rectangle=obstacle, H=H, color='tab:red', alpha=0.2, zorder=1)
             ax.add_patch(projected)
-
+        '''
         # visualization parameters
         ego_params = {'linestyle': 'solid', 'linewidth': 3, 'zorder': 2, 'alpha': 0.3, 'color': 'tab:gray'}
-        non_ego_h_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 1}
+        non_ego_h_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 1, 'color': 'tab:blue', 'alpha': 0.5}
         non_ego_f_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 1, 'color': 'tab:blue', 'alpha': 0.3, 'label': 'future'}
         arrowprops = {'arrowstyle': 'Fancy', 'mutation_scale': 30}
 
@@ -284,7 +284,7 @@ class Environment:
                     trajectory=h,
                     H=H,
                     ax=ax,
-                    c=kwargs['c'],
+                    c=None,
                     **non_ego_h_params
                 )
 
@@ -311,52 +311,38 @@ class Environment:
                 x_next, y_next = f[0]
                 x, y = h[-1]
                 add_arrow(x=x, y=y, x_next=x_next, y_next=y_next, H=H, ax=ax, arrowprops=arrowprops)
-        '''
-        norm = mpl.colors.Normalize(vmin=0., vmax=1., clip=True)
-        cmap = cm.get_cmap('plasma')
 
-        mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
-        mappable.set_array([])
-
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("top", size="5%", pad=0.05)
-
-        cb = plt.colorbar(mappable, cax=cax, orientation='horizontal')
-        cb.ax.xaxis.set_ticks_position('top')
-        cb.ax.xaxis.set_ticks([0, 0.5, 1])
-        cb.ax.xaxis.set_ticklabels([0, 0.5, 1])
-        # cb.set_label('competency index', rotation=0, labelpad=12, va='center')
-        ax.text(x=1.05, y=1.02, s='competency index', fontsize=16, transform = ax.transAxes)
-        '''
         # mark the goal position
-        visualize_point(self._goal, H, ax, color='tab:pink', marker='*', s=160, label='goal', zorder=500)
+        visualize_point(self._goal, H, ax, color='#B4FF32', marker='*', s=160, label='goal', zorder=500, linewidth=5)
 
         # (optional) ego-motion plan
 
 
-
-        if 'open_loop_base' in kwargs:
-            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'tab:pink', 'label': 'open loop (baseline)', 'alpha': 0.9}
-            visualize_trajectory(
-                trajectory=kwargs['open_loop_base'],
-                H=H,
-                ax=ax,
-                c=None,
-                **ego_plan_params
-            )
-
         if 'open_loop_gt' in kwargs:
-            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'tab:gray', 'label': 'open loop (oracle)', 'alpha': 0.9}
+            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'tab:gray', 'label': 'Oracle', 'alpha': 0.9}
             visualize_trajectory(
                 trajectory=kwargs['open_loop_gt'],
                 H=H,
                 ax=ax,
+                offset=-0.03,
                 c=None,
                 **ego_plan_params
             )
 
+        if 'open_loop_base' in kwargs:
+            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'tab:pink', 'label': 'Linear', 'alpha': 0.9}
+            visualize_trajectory(
+                trajectory=kwargs['open_loop_base'],
+                H=H,
+                ax=ax,
+                offset=0.03,
+                c=None,
+                **ego_plan_params
+            )
+
+
         if 'open_loop' in kwargs:
-            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'tab:cyan', 'label': 'open loop', 'alpha': 0.9}
+            ego_plan_params = {'linestyle': 'solid', 'linewidth': 5, 'zorder': 2, 'color': 'tab:cyan', 'label': 'Trajectron++', 'alpha': 0.9}
             visualize_trajectory(
                 trajectory=kwargs['open_loop'],
                 H=H,
@@ -364,26 +350,39 @@ class Environment:
                 c=None,
                 **ego_plan_params
             )
-
+        '''
         ax_for_idx = fig.add_axes([0.7, 0.1, .5, .5])
         ax_for_idx.yaxis.set_ticks_position('right')
         ax_for_idx.plot(kwargs['hc'][-10:], label='PR (hindsight)', linestyle='dashed', color='#808000', linewidth=3, alpha=0.5)
         # ax_for_idx.plot(kwargs['c'][-10:], label='PR', linestyle='solid', color='#808000', linewidth=3)
         ax_for_idx.grid(True)
         ax_for_idx.legend()
-
-        h, w, _ = image.shape
-        if self.dataset_label.lower() == "snu-asri" or self.dataset_label.lower() == "lobby":
+        '''
+        if self._dataset.name in ['snu-asri', 'snu-asri-ood']:
             ax.set_xlim(-3.0, 8.5)
             ax.set_ylim(1.5, -9.5)
         else:
+            h, w, _ = image.shape
             ax.set_xlim(0, w)
             ax.set_ylim(h, 0)
-        ax.legend(fontsize=12, ncols=1, loc='upper left', bbox_to_anchor=(1, 0., .3, 1.))
+
+        # ax.legend(fontsize=20, ncols=5)
+        # ax.legend(fontsize=12, ncols=1, loc='upper left', bbox_to_anchor=(1, 0., .3, 1.))
+
+
+        label_params = ax.get_legend_handles_labels()
+
+        figl, axl = plt.subplots(figsize=(18, 2))
+        axl.axis(False)
+        leg = axl.legend(*label_params, fontsize=24, loc="center", bbox_to_anchor=(0.5, 0.5), ncols=5)
+        for legobj in leg.legend_handles:
+            legobj.set_linewidth(9.0)
+        figl.tight_layout()
+        figl.savefig("legend.pdf")
 
 
 
-        fig.savefig(os.path.join(self._path_to_save, '{:03d}.png'.format(self._step)), bbox_inches='tight', pad_inches=0)
-        plt.close()
+        # fig.savefig(os.path.join(self._path_to_save, '{:03d}.pdf'.format(self._step)), bbox_inches='tight', pad_inches=0)
+        # plt.close()
 
         return fig, ax

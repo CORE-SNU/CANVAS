@@ -26,6 +26,7 @@ class LinearQuantileTracker:
 
         self._past_scores = []
         self._past_quantiles = []
+        self._past_features = []
 
         # step size of the GD
         self._lr = step_size
@@ -38,17 +39,19 @@ class LinearQuantileTracker:
         self._past_params: List[np.ndarray] = []
 
     def _initialize_params(self) -> np.ndarray:
+        # p = np.zeros(self._sample_size - 1)
+        # p[-1] = 1.
         p = np.ones(self._sample_size + 1) / self._sample_size
         p[-1] = 0.
         return p
 
-    def feature_vector(self):
-        # feature vector [S_{t-N-p+1}, ..., S_{t-N}, 1]^T
+    def feature_vector(self, i):
+        # feature vector Phi(t - i) := [S_{t-i-N-p+1}, ..., S_{t-i-N}, 1]^T
         # If t < N + p - 1, then pad the vector with the oldest value.
         n = len(self._past_scores)
         assert n > 0
         s0 = self._past_scores[0]
-        phi = max(self._sample_size - n, 0) * [s0] + self._past_scores[-self._sample_size:] + [1.]
+        phi = max(self._sample_size - n + i, 0) * [s0] + self._past_scores[-self._sample_size-i:n-i] + [1.]
         return np.array(phi)
 
     def update(self, score):
@@ -57,12 +60,18 @@ class LinearQuantileTracker:
 
         # true if the interval fails to cover the score
         # S_{t-N} <= q(t-N)?
+        # q(t-N) = th(t-N)^T Phi(t-N)
         if len(self._past_quantiles) > self._delay:
             # online PGD: theta_{t-1} -> theta_t
             # sample gradient
             err: bool = score > self._past_quantiles[-self._delay]
 
-            g = (self._alpha - err) * self.feature_vector()
+            feat = self.feature_vector(self._delay)
+
+            # d_th = feat[1:] - feat[0]
+
+            g = (self._alpha - err) * feat
+
             # GD step
             # step size satisfying Robbins-Monro conditions
             # decay = 1. / (1. + self._step) ** .51
@@ -82,5 +91,7 @@ class LinearQuantileTracker:
         return covered
 
     def fit(self):
-        # q(t) = theta_t^T phi_t
-        return self.feature_vector() @ self.params
+        # q(t) = theta(t)^T phi(t)
+        # p = np.insert(self.params, 0, 1. - self.params.sum())
+        # return self.feature_vector(0) @ p
+        return self.feature_vector(0) @ self.params

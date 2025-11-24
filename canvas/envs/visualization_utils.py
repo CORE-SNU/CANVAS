@@ -67,14 +67,14 @@ def to_image_frame(pos, H):
     return pos_x_tf / pos_z_tf, pos_y_tf / pos_z_tf
 
 
-def visualize_trajectory(trajectory, H, ax, c=None, **kwargs):
+def visualize_trajectory(trajectory, H, ax, c=None, offset=0., **kwargs):
     """
     trajectory: numpy array of shape (N, 2)
     H: homography matrix
     c: numpy array of shape (N,) or None
     """
     # traj_np = np.array(trajectory)
-    traj_image_x, traj_image_y = to_image_frame(trajectory, H)
+    traj_image_x, traj_image_y = to_image_frame(trajectory + offset, H)
     if c is None:
         ax.plot(traj_image_x, traj_image_y, **kwargs)
     else:
@@ -94,12 +94,12 @@ def add_arrow(x, y, x_next, y_next, H, ax, arrowprops):
     ax.annotate(text='', xy=(x_next, y_next), xytext=(x, y), arrowprops=arrowprops)
 
 
-def visualize_point(point, H, ax, color, marker, s, label, zorder):
+def visualize_point(point, H, ax, color, marker, s, label, zorder, linewidth):
     assert point.ndim == 1
     point = np.expand_dims(point, axis=0)
     x, y = to_image_frame(point, H)
     x, y = x.item(), y.item()
-    ax.scatter(x, y, color=color, marker=marker, s=s, label=label, zorder=zorder)
+    ax.scatter(x, y, color=color, marker=marker, s=s, label=label, zorder=zorder, linewidth=linewidth)
 
 
 
