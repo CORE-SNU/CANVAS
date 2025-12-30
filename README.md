@@ -12,7 +12,7 @@ git clone --recurse-submodules https://github.com/CORE-SNU/CANVAS.git
 To use MPPI controllers as baselines, run 
 ```
 cd CANVAS
-pip install -e canvas/controllers/MPPI
+pip install -e canvas/controllers/pytorch_mppi
 ```
 This installs the MPPI implementation forked from [pytorch-mppi][pytorch-mppi-link]. Note that the requires pytorch to be installed in advance.
 
