@@ -1,4 +1,4 @@
-{
+{    "obstacles": {
     "upper place": {
         "xmin": 3.8,
         "xmax": 11.4,
@@ -16,5 +16,5 @@
         "xmax": 3.9,
         "ymin": 9.6,
         "ymax": 11.6
-    }
+    }}
 }
