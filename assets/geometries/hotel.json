@@ -1,4 +1,4 @@
-{
+{    "obstacles": {
     "left road": {
         "xmin": -3.0,
         "xmax": -0.8,
@@ -34,5 +34,5 @@
         "xmax": 7.0,
         "ymin": -11.0,
         "ymax": 5.0
-    }
+    }}
 }
