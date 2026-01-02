@@ -1,4 +1,4 @@
-{
+{    "obstacles": {
     "left building": {
         "xmin": 0.0,
         "xmax": 9.5,
@@ -16,5 +16,5 @@
         "xmax": 11.8,
         "ymin": 6.4,
         "ymax": 14.0
-    }
+    }}
 }
