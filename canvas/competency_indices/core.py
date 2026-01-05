@@ -75,6 +75,9 @@ class MovingAverageCompetencyIndex:
     def get_coverage(self, name: str) -> np.ndarray:
         return np.array(self._covered[name])
 
+    def get_coverage_rate(self):
+         return {name: np.mean(self._covered[name]) for name in self._names}
+
     def get_average_values(self):
         return {name: np.mean(self._indices[name]) for name in self._names}
 

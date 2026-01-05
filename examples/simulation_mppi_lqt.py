@@ -4,10 +4,10 @@ import numpy as np
 import os
 import matplotlib
 import matplotlib.pyplot as plt
-# import torch
+import torch
 from copy import deepcopy
 
-from canvas.controllers import BaseMPC
+from canvas.controllers import VanillaMPPI
 
 from canvas.datasets import RegisteredDatasets
 from canvas.envs.env import Environment
@@ -52,7 +52,8 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         'hotel': {'init_robot_state': state_dict_from_vec(np.array([-1.5, 0., -np.pi / 2])), 'goal_pos': np.array([2., -6.]), 't_begin': 78, 't_end': 200},
         'eth': {'init_robot_state': state_dict_from_vec(np.array([5., 1.0, np.pi / 2.])), 'goal_pos': np.array([3., 10.]), 't_begin': 1, 't_end': 100},
         'univ': {'init_robot_state': state_dict_from_vec(np.array([3.5, 2., np.pi / 4.])), 'goal_pos': np.array([11.5, 8.5]), 't_begin': 1, 't_end': 300},
-        'snu-asri': {'init_robot_state': state_dict_from_vec(np.array([0., 0., 0.])), 'goal_pos': np.array([6., -5.]), 't_begin': 100, 't_end': 250}
+        'snu-asri': {'init_robot_state': state_dict_from_vec(np.array([0., 0., 0.])), 'goal_pos': np.array([6., -5.]), 't_begin': 100, 't_end': 250},
+        'snu-asri-ood': {'init_robot_state': state_dict_from_vec(np.array([0., 0., 0.])), 'goal_pos': np.array([6., -5.]), 't_begin': 100, 't_end': 250}
 
     }
 
@@ -100,8 +101,18 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
 
         ROBOT_RAD = .4
         d_min = ROBOT_RAD + .1 / np.sqrt(2.)
-
-        mpc = BaseMPC(prediction_horizon=prediction_horizon, dt=env.dt, goal=env.goal, d_min=d_min, geometry=env.geometry, solve_nlp=True)
+        ROBOT_RAD = .4
+        d_min = ROBOT_RAD + .1 / np.sqrt(2.)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        mppi_params = {
+           "num_samples": 500,
+           "noise_mu": torch.zeros(2, dtype=torch.float, device=device),
+           "noise_sigma": torch.diag(torch.tensor([1., 1.], dtype=torch.float, device=device)),
+           "u_max": torch.tensor([.8, .7], dtype=torch.float, device=device),
+           "lambda_": 1,
+           "device": device
+           }
+        mpc = VanillaMPPI(prediction_horizon=prediction_horizon, dt=env.dt, mppi_params=mppi_params, goal=env.goal, d_min=d_min)
 
         # ---- CP module (updated once per frame) ----
 

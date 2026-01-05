@@ -5,4 +5,4 @@ from .ecp_mpc import EgocentricCPMPC
 from .mppi import KernelMPPI
 from canvas.controllers.mpc import BaseMPC
 
-from canvas.controllers.mppi import KernelMPPI
+from canvas.controllers.mppi import KernelMPPI, VanillaMPPI

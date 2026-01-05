@@ -5,15 +5,15 @@ from canvas.controllers.optim_solver import solve
 
 
 class BaseMPC:
-    def __init__(self, prediction_horizon, dt, goal, d_min, geometry: Geometry, use_ipopt: bool = False):
+    def __init__(self, prediction_horizon, dt, goal, d_min, geometry: Geometry, solve_nlp: bool = False):
         self._n_steps = prediction_horizon
         self._dt = dt
         self._goal = goal
         self._d_min = d_min
         self._geom: Geometry = geometry
-        self.use_ipopt = use_ipopt
+        self.use_ipopt = solve_nlp
 
-    def __call__(self, obs, prediction_res, change_controller_state=False):
+    def __call__(self, obs, prediction_res, change_controller_state=False, warm_start=None):
         o = obs['ego']
         x, y, th = o['position_x'], o['position_y'], o['orientation_z']
         Xs, Us = self.generate_paths(x, y, th, n_skip=4)        # shape of Xs: (# samples, prediction horizon + 1, dim.)

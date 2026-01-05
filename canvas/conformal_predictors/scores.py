@@ -131,12 +131,14 @@ class PlanningRegretScoreFunction(ScoreFunction):
 
         # only data they are included in the prediction result
         ground_truth = self._buffer.query(keys=prediction.keys())
-        action_gt, info_gt = controller(obs=past_obs, prediction_res=ground_truth, change_controller_state=False, **context)
+        action_gt, info_gt = controller(obs=past_obs, prediction_res=ground_truth, change_controller_state=False, warm_start=U, **context)
+        action_gt_base, info_gt_base = controller(obs=past_obs, prediction_res=ground_truth, change_controller_state=False, warm_start=U_base,     **context)
         cost_gt = info_gt['cost_to_go'].item()
+        cost_gt_base = info_gt_base['cost_to_go'].item()
         cost = controller.cost_to_go(obs=past_obs, prediction_res=ground_truth, U=U).item()
         cost_base = controller.cost_to_go(obs=past_obs, prediction_res=ground_truth, U=U_base).item()
 
-        pr = cost - cost_gt
-        pr_base = cost_base - cost_gt
+        pr = cost - cost_gt_base
+        pr_base = cost_base - cost_gt_base
 
         return pr, pr_base

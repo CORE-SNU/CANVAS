@@ -102,9 +102,9 @@ def solve(ts, dt, ulb, uub,
     g = ca.vertcat(*g)
 
     # define the optimization problem
-    opts = {'ipopt.print_level': 0, 'print_time': 0, 'verbose': False}
+    opts = {'snopt.print_level': 0, 'print_time': 0, 'verbose': True}
     nlp = {'x': ca.vertcat(x, u), 'f': objective, 'g': g}
-    solver = ca.nlpsol('solver', 'ipopt', nlp, opts)
+    solver = ca.nlpsol('solver', 'snopt', nlp, opts)
 
     # provide the initial guesses
     u_init = np.reshape(U, newshape=(-1,))

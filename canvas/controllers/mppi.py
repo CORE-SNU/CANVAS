@@ -77,6 +77,69 @@ def compute_mppi_state(obs, p_dict, prediction_horizon):
     return np.array(state)
 
 
+
+class VanillaMPPI:
+    """
+    A wrapper of pytorch_mppi.mppi
+    """
+    def __init__(self, prediction_horizon, dt, mppi_params, goal, d_min):
+
+
+        pytorch_seed.seed(2)
+
+
+        goal_x, goal_y = goal
+        self._running_cost = partial(running_cost, goal_x=goal_x, goal_y=goal_y, d_min=d_min)
+        self._terminal_cost = partial(terminal_cost, goal_x=goal_x, goal_y=goal_y, d_min=d_min)
+        self._dynamics = partial(unicycle_dynamics, dt=dt)
+
+        self.device = mppi_params['device']
+        self._prediction_horizon = prediction_horizon
+        self._mppi = torch_mppi.MPPI(
+            self._dynamics,
+            self._running_cost,
+            3+1+prediction_horizon,
+            **mppi_params,
+            terminal_state_cost=self._terminal_cost,
+            horizon=prediction_horizon
+        )
+        self._mppi.reset()
+
+        return
+
+    def __call__(self, obs, prediction_res, change_controller_state=False, warm_start=None):
+        state = compute_mppi_state(obs, prediction_res, prediction_horizon=self._prediction_horizon)
+        if warm_start is not None:
+            self._mppi.U = warm_start
+        u = self._mppi.command(state, shift_nominal_trajectory=change_controller_state)
+
+        state_torch = torch.tensor(state).to(self.device)
+        rollout = self._mppi.get_rollouts(state_torch)
+        X = rollout[0]
+
+        U = self._mppi.U
+        cost_to_go = 0.
+        for t in range(len(rollout) - 1):
+            cost_to_go = cost_to_go + self._running_cost(X[t], U[t])
+
+        cost_to_go = cost_to_go + self._terminal_cost(X, U)
+        controller_info = {'X': X, 'U': U, 'cost_to_go': cost_to_go}
+
+        return u.detach().cpu().numpy(), controller_info
+
+    def cost_to_go(self, obs, prediction_res, U):
+        state = compute_mppi_state(obs, prediction_res, prediction_horizon=self._prediction_horizon)
+        state_torch = torch.tensor(state).to(self.device)
+        rollout = self._mppi.get_rollouts(state_torch, U=U)
+        X = rollout[0]
+
+        rollout_cost = 0.
+        for t in range(len(rollout) - 1):
+            rollout_cost = rollout_cost + self._running_cost(X[t], U[t])
+        rollout_cost = rollout_cost + self._terminal_cost(X, U)
+        return rollout_cost
+
+
 class KernelMPPI:
     """
     A wrapper of pytorch_mppi.mppi
