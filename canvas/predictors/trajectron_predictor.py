@@ -1,11 +1,31 @@
 # trajectron_predictor.py
 
 import numpy as np
+import os
+import json
 from .trajectron_lobby_data_live import predict
 from .trajectron.environment.node import Node
 from .trajectron.environment.node_type import NodeType
 from .wrapper_predictor import BasePredictors
-
+from .trajectron.model.model_registrar import ModelRegistrar
+from .trajectron.model.trajectron import Trajectron
+from .trajectron.environment import Environment, Scene, Node, derivative_of
+standardization = {
+    'PEDESTRIAN': {
+        'position': {
+            'x': {'mean': 0, 'std': 1},
+            'y': {'mean': 0, 'std': 1}
+        },
+        'velocity': {
+            'x': {'mean': 0, 'std': 2},
+            'y': {'mean': 0, 'std': 2}
+        },
+        'acceleration': {
+            'x': {'mean': 0, 'std': 1},
+            'y': {'mean': 0, 'std': 1}
+        }
+    }
+}
 
 def linear_extrapolation(traj, prediction_len, dt=0.1, noise_floor=0.01):
     """
@@ -25,6 +45,16 @@ def linear_extrapolation(traj, prediction_len, dt=0.1, noise_floor=0.01):
         return np.tile(traj[-1, :], (prediction_len, 1))
 
 
+def load_model(model_dir, env, ts=100):
+    model_registrar = ModelRegistrar(model_dir, 'cpu')
+    model_registrar.load_models(ts)
+    with open(os.path.join(model_dir, 'config.json'), 'r') as config_json:
+        hyperparams = json.load(config_json)
+
+    trajectron = Trajectron(model_registrar, hyperparams, None, 'cpu')
+
+    return trajectron, hyperparams
+
 class TrajectronPredictor(BasePredictors):
     def __init__(
         self,
@@ -42,15 +72,18 @@ class TrajectronPredictor(BasePredictors):
             dt=dt,
             device=device,
         )
+        self.env = Environment(node_type_list=['PEDESTRIAN'], standardization=standardization)
+        attention_radius = dict()
+        attention_radius[(self.env.NodeType.PEDESTRIAN, self.env.NodeType.PEDESTRIAN)] = 3.0
+        self.env.attention_radius = attention_radius
+        self.eval_stg, self.hyperparams = load_model(model_dir, self.env, ts=100)
         self.model_dir = model_dir
 
     def __call__(self, tracking_results):
-        # 동적 객체가 없으면 빈 dict 반환
         if not tracking_results:
             return {}
 
         converted_results = {}
-        # linear predictor와 달리, dummy_data 대신 실제 trajectory 데이터를 함께 저장합니다.
         for obj_id, traj in tracking_results.items():
             dynamic_type = NodeType("PEDESTRIAN", 1)
             node = Node(node_type=dynamic_type, node_id=str(obj_id), data=traj)
@@ -58,64 +91,7 @@ class TrajectronPredictor(BasePredictors):
 
         # Trajectron 모델을 통해 예측 수행
         predictions_dict = predict(
-            converted_results, self.prediction_len, model_dir=self.model_dir
+            converted_results, self.prediction_len, model_dir=self.model_dir,env=self.env, eval_stg=self.eval_stg, hyperparams=self.hyperparams
         )
 
-        if isinstance(predictions_dict, dict) and len(predictions_dict) == 1:
-            _, predictions_inner = next(iter(predictions_dict.items()))
-        else:
-            predictions_inner = predictions_dict
-
-        final_predictions = {}
-        for key, traj_pred in predictions_inner.items():
-            key_id = int(str(key).split("/")[-1])  # 문자열 대신 정수로 변환
-            traj_pred = np.squeeze(traj_pred)
-            if traj_pred.ndim == 1:
-                traj_pred = traj_pred.reshape(-1, 2)
-
-            desired_length = self.prediction_len
-            current_length = traj_pred.shape[0]
-
-            # 정적인 예측일 경우 선형 외삽 + 약간의 노이즈
-            if current_length > 1 and np.std(traj_pred) < 1e-3:
-                orig_traj = None
-                for node_obj, orig in converted_results.items():
-                    if int(node_obj.id) == key_id:
-                        orig_traj = np.array(orig)
-                        break
-                if orig_traj is not None:
-                    traj_pred = linear_extrapolation(
-                        orig_traj, desired_length, dt=self._dt
-                    )
-                    noise = np.random.randn(*traj_pred.shape) * 0.01
-                    traj_pred = traj_pred + noise
-                else:
-                    pad_length = desired_length - current_length
-                    pad_values = np.repeat(traj_pred[-1:, :], pad_length, axis=0)
-                    traj_pred = np.concatenate([traj_pred, pad_values], axis=0)
-            else:
-                # 길이 보정
-                if current_length < desired_length:
-                    pad_length = desired_length - current_length
-                    pad_values = np.repeat(traj_pred[-1:, :], pad_length, axis=0)
-                    traj_pred = np.concatenate([traj_pred, pad_values], axis=0)
-                elif current_length > desired_length:
-                    traj_pred = traj_pred[:desired_length, :]
-
-            final_predictions[key_id] = traj_pred  # key를 int로 저장
-
-        # 입력엔 있으나 예측에 누락된 객체 처리
-        for node_obj, orig_traj in converted_results.items():
-            key_id = int(node_obj.id)
-            if key_id not in final_predictions:
-                orig_traj = np.array(orig_traj)
-                if orig_traj.ndim == 1:
-                    orig_traj = orig_traj.reshape(-1, 2)
-                traj_pred = linear_extrapolation(
-                    orig_traj, self.prediction_len, dt=self._dt
-                )
-                noise = np.random.randn(*traj_pred.shape) * 0.01
-                traj_pred = traj_pred + noise
-                final_predictions[key_id] = traj_pred
-
-        return final_predictions
+        return predictions_dict
