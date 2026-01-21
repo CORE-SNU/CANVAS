@@ -120,36 +120,21 @@ def process_tracking_results(tracking_results, dt=0.4):
     return scene
 
 
-def load_model(model_dir, env, ts=100):
-    model_registrar = ModelRegistrar(model_dir, 'cpu')
-    model_registrar.load_models(ts)
-    with open(os.path.join(model_dir, 'config.json'), 'r') as config_json:
-        hyperparams = json.load(config_json)
-
-    trajectron = Trajectron(model_registrar, hyperparams, None, 'cpu')
-
-    trajectron.set_environment(env)
-    trajectron.set_annealing_params()
-    return trajectron, hyperparams
-
 #python evaluate_trajectron_lobby_data.py --data ../processed/lobby_data_test.pkl  --model ./models/models_17_Mar_2025_22_52_52lobby_data_ar3
 
-def predict(tracking_result, prediction_len=None,model_dir="./",):
+def predict(tracking_result, prediction_len=None,model_dir="./", env=None, eval_stg=None, hyperparams=None):
     """
     Predict trajectories using the Trajectron model.
     :param tracking_result: dict, keys are object ids and values are histories.
     :param prediction_len: 예측하고자 하는 길이(타임스텝 수). 제공되면 hyperparameter를 오버라이드함.
     :return: predictions dictionary.
     """
-    env = Environment(node_type_list=['PEDESTRIAN'], standardization=standardization)
-    attention_radius = dict()
-    attention_radius[(env.NodeType.PEDESTRIAN, env.NodeType.PEDESTRIAN)] = 3.0
-    env.attention_radius = attention_radius
+
     scene = process_tracking_results(tracking_result, dt=0.1)
     env.scenes = [scene]
 
-    eval_stg, hyperparams = load_model(model_dir, env, ts=100)
-
+    eval_stg.set_environment(env)
+    eval_stg.set_annealing_params()
     # 여기서 원하는 예측 길이가 있다면 hyperparameter를 오버라이드합니다.
     if prediction_len is not None:
         hyperparams['prediction_horizon'] = prediction_len
