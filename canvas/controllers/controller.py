@@ -11,8 +11,7 @@ class controllers:
         """Simple access class for different controllers.
 
         Args:
-            chosen_controller: One of {"conformal", "mpc", "grid", "sampling", "ecp_mpc", "mppi"}.
-            (TODO: Add other controllers - conformal, grid, sampling, ecp_mpc (need to revise))
+            chosen_controller: One of {"mpc", "mppi"}.
             prediction_len: Number of future steps to predict.
             dt: Timestep used by some controllers.
             goal: goal position
@@ -42,7 +41,7 @@ class controllers:
         else:
             raise ValueError(
                 f"Unknown controller '{chosen_controller}'. "
-                "Available options are 'conformal', 'mpc', 'grid', 'sampling', 'ecp', and 'mppi'."
+                "Available options are 'mpc' and 'mppi'."
             )
         '''
         if name in ("conformal", "conf"):
