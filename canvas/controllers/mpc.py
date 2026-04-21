@@ -173,8 +173,8 @@ class BaseMPC:
 
         linear_xs, angular_zs = np.meshgrid(linear_xs, angular_zs)
 
-        linear_xs = np.reshape(linear_xs, newshape=(-1,))
-        angular_zs = np.reshape(angular_zs, newshape=(-1,))
+        linear_xs = np.reshape(linear_xs, (-1,))
+        angular_zs = np.reshape(angular_zs, (-1,))
 
         # (# grid points, 2)
         # velocity_profile = np.stack((linear_xs, angular_zs), axis=0)

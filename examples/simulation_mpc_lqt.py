@@ -65,7 +65,7 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         **scenario_configs[dataset_name],
         history_len=history_len,
         prediction_horizon=prediction_horizon,
-        path_to_frames='/media/sju5379/F6340D35340CF9FF/euped_assets/frames',
+        path_to_frames='/home/jaeuk/CANVAS/assets/frames',
         # directory from which the parsed frames are loaded
         path_to_save='./viz_mpc_{}'.format(dataset_name)  # directory to save the visualization result
     )
