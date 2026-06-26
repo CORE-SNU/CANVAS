@@ -5,7 +5,7 @@ import argparse
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("asset_dir", help="asset dirpath to save", type=str)
+parser.add_argument("asset_dir",nargs="?", help="asset dirpath to save", type=str, default=os.path.dirname(__file__))
 args = parser.parse_args()
 
 

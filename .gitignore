@@ -350,3 +350,5 @@ viz_example_lobby/
 /viz_grid_example/
 /viz_mppi_example/
 /viz_mpc_example/
+my_canvas_env_report.txt
+check_canvas_env.sh
