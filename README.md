@@ -63,8 +63,14 @@ pip install -e canvas/controllers/pytorch_mppi
 
 This is a fork of [pytorch-mppi][pytorch-mppi-link]; PyTorch must already be installed
 (the conda env above takes care of this).
+### 4. Install the canvas submodule (editable)
+The submodule at `canvas` must also be installed in editable mode
+so that any file can import it:
 
-### 4. (Optional) Headless / no-display machines
+```bash
+pip install -e .
+```
+### 5. (Optional) Headless / no-display machines
 
 If you are on a server without an X display, export:
 
