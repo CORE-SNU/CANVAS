@@ -18,14 +18,6 @@ from canvas.competency_indices.core import ConformalizedCompetencyIndex, Hindsig
 
 from canvas.predictors import Predictors
 
-path = os.path.abspath(__file__)
-
-parts = path.split(os.sep)
-canvas_idx = parts.index("CANVAS")
-canvas_root = os.sep.join(parts[:canvas_idx + 1])
-target_path = os.path.join(canvas_root, "assets", "frames")
-default_path_to_frames = target_path
-
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
@@ -45,7 +37,7 @@ def state_dict_from_vec(v):
     return {'position_x': v[0], 'position_y': v[1], 'orientation_z': v[2]}
 
 
-def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = False):
+def main(num_iter, dataset_name, predictor, predictor_base, frames_dir, visualize: bool = False):
 
     dataset = RegisteredDatasets[dataset_name]
 
@@ -71,7 +63,7 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
         **scenario_configs[dataset_name],
         history_len=history_len,
         prediction_horizon=prediction_horizon,
-        path_to_frames=default_path_to_frames,
+        path_to_frames=frames_dir,
         # directory from which the parsed frames are loaded
         path_to_save='./viz_mpc_{}'.format(dataset_name)  # directory to save the visualization result
     )
@@ -338,7 +330,12 @@ def main(num_iter, dataset_name, predictor, predictor_base, visualize: bool = Fa
 if __name__ == "__main__":
     # TODO: write -h?
     parser = argparse.ArgumentParser()
-
+    path = os.path.abspath(__file__)
+    parts = path.split(os.sep)
+    canvas_idx = parts.index("CANVAS")
+    canvas_root = os.sep.join(parts[:canvas_idx + 1])
+    target_path = os.path.join(canvas_root, "assets", "frames")
+    parser.add_argument("--frames",nargs="?", help="frames dirpath", type=str, default=target_path)
     parser.add_argument('--dataset', type=str, default="zara1")
     parser.add_argument('--predictor', type=str, default="traj")
     parser.add_argument('--predictor_base', type=str, default="linear")
@@ -349,4 +346,4 @@ if __name__ == "__main__":
     parser.add_argument('--video_fps', type=float, default=2.5)
 
     args = parser.parse_args()
-    main(args.num_iter, args.dataset, args.predictor, args.predictor_base, visualize=args.visualize)
+    main(args.num_iter, args.dataset, args.predictor, args.predictor_base, frames_dir=args.frames, visualize=args.visualize)

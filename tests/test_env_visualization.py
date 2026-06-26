@@ -1,18 +1,11 @@
 import numpy as np
-
+import argparse
 from canvas.datasets import RegisteredDatasets
 from canvas.envs.env import Environment
 import os
-path = os.path.abspath(__file__)
-
-parts = path.split(os.sep)
-canvas_idx = parts.index("CANVAS")
-canvas_root = os.sep.join(parts[:canvas_idx + 1])
-target_path = os.path.join(canvas_root, "assets", "frames")
-default_path_to_frames = target_path
 
 
-def test_env_visualization():
+def test_env_visualization(frames_dir=None):
 
     dataset = RegisteredDatasets['zara1']
     env = Environment(
@@ -23,8 +16,7 @@ def test_env_visualization():
         t_end=200,
         history_len=8,
         prediction_horizon=12,
-        #path_to_frames='/media/sju5379/F6340D35340CF9FF/euped_assets/frames',
-        path_to_frames=default_path_to_frames,
+        path_to_frames=frames_dir,
         path_to_save='./viz_example'
     )
 
@@ -43,4 +35,12 @@ def test_env_visualization():
 
 
 if __name__ == '__main__':
-    test_env_visualization()
+    parser = argparse.ArgumentParser()
+    path = os.path.abspath(__file__)
+    parts = path.split(os.sep)
+    canvas_idx = parts.index("CANVAS")
+    canvas_root = os.sep.join(parts[:canvas_idx + 1])
+    target_path = os.path.join(canvas_root, "assets", "frames")
+    parser.add_argument("--frames",nargs="?", help="frames dirpath", type=str, default=target_path)
+    args = parser.parse_args()
+    test_env_visualization(frames_dir=args.frames)
