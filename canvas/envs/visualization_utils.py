@@ -5,6 +5,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Polygon
 from scipy import ndimage
 from PIL import Image
+import torch
 import warnings
 from matplotlib.collections import LineCollection
 
@@ -51,7 +52,15 @@ def to_homogeneous_coordinates(pos):
     :return: numpy array of shape (N, 3) where the last column is filled with 1
              contains the homogeneous coordinates of N points in RP^2
     """
-    z = np.ones((pos.shape[0], 1))      # N-dimensional column vector: (N, 1)
+    #z = np.ones((pos.shape[0], 1))      
+    if isinstance(pos, torch.Tensor):
+        pos = pos.detach().cpu().numpy() # added due to torch tensor issue with hstack
+
+    z = np.ones(
+        (pos.shape[0], 1),
+        dtype=pos.dtype,
+    )# N-dimensional column vector: (N, 1)
+
     return np.hstack((pos, z))
 
 

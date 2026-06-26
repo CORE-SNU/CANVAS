@@ -101,7 +101,7 @@ videos; see `assets/video_parser.py`. The SNU-ASRI scenes use the single static 
 
 Several scripts still contain absolute paths that must be adapted to your machine:
 
-- `path_to_frames=` arguments inside `examples/simulation_mpc_lqt.py`,
+- `default_path_to_frames` argument inside `examples/simulation_mpc_lqt.py`,
   `examples/simulation_mppi_lqt.py`, and files under `tests/`.
 - Pretrained model paths inside the `Predictors` constructor
   (`canvas/predictors/predictor.py`) are interpreted relative to the CWD. Run all
