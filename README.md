@@ -65,7 +65,7 @@ This is a fork of [pytorch-mppi][pytorch-mppi-link]; PyTorch must already be ins
 (the conda env above takes care of this).
 ### 4. Install the canvas submodule (editable)
 The submodule at `canvas` must also be installed in editable mode
-so that any file can import it:
+such that any file can import it:
 
 ```bash
 pip install -e .
